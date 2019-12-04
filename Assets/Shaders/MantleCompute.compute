@@ -1,0 +1,212 @@
+﻿
+
+// 64 bytes total, 512 bits
+struct ParticlePoint {
+	float3 pos;     // 12 bytes
+	float3 vel;     // 12 bytes
+	float rad;      // 4 bytes
+
+	int dx;			// 12 bytes
+	int dy;
+	int dz;
+
+	float temp;		// 12 bytes
+	int dtemp;
+	float density;
+
+	int blank1;		// 12 bytes
+	int blank2;
+	int blank3;
+};
+
+RWStructuredBuffer<ParticlePoint> particleBuffer;	// Buffer of all the particle points.
+RWStructuredBuffer<int> gridPlacementBuffer;		// Buffer of which grid cells each point (center and all six poles) will be in.
+RWStructuredBuffer<int> gridContainedBuffer;		// Buffer containing the ID's of particles and count for each grid cell.
+
+float simSpeed;
+
+// Grid information
+float gridWidth;
+float cellWidth;
+int cellsWide;
+int maxParticlesPerGrid;
+
+// Planet information
+float mantleRadius;
+float coreRadius;
+
+float interactionDistance;
+float forceMod;
+float forceExponential;
+float frictionMod;
+
+float convectionMod;
+float heatingMod;
+float sinkingMod;
+float coreTemperature;
+float surfaceTemperature;
+
+float coreDensity;
+float surfaceDensity;
+
+int F_TO_I;					// float to int
+float I_TO_F;				// int to float
+
+#pragma kernel findGridCells
+[numthreads(16, 1, 1)]
+void findGridCells (uint3 id : SV_DispatchThreadID)
+{
+	// Go through each point and find the place in the grid it would be for the center and all six poles.
+	ParticlePoint particle = particleBuffer[id.x];
+
+	int x = (int)((particle.pos.x + gridWidth) / cellWidth);
+	int y = (int)((particle.pos.y + gridWidth) / cellWidth);
+	int z = (int)((particle.pos.z + gridWidth) / cellWidth);
+	int index = x + (y * cellsWide) + (z * cellsWide * cellsWide);
+	gridPlacementBuffer[id.x * 7] = index;
+
+	// Calculate the x min/max cells.
+	x = (int)((particle.pos.x + gridWidth + particle.rad) / cellWidth);
+	index = x + (y * cellsWide) + (z * cellsWide * cellsWide);
+	gridPlacementBuffer[id.x * 7 + 1] = index;
+
+	x = (int)((particle.pos.x + gridWidth - particle.rad) / cellWidth);
+	index = x + (y * cellsWide) + (z * cellsWide * cellsWide);
+	gridPlacementBuffer[id.x * 7 + 2] = index;
+	x = (int)((particle.pos.x + gridWidth) / cellWidth);
+
+	// Calculate the y min/min cells.
+	y = (int)((particle.pos.y + gridWidth + particle.rad) / cellWidth);
+	index = x + (y * cellsWide) + (z * cellsWide * cellsWide);
+	gridPlacementBuffer[id.x * 7 + 3] = index;
+
+	y = (int)((particle.pos.y + gridWidth - particle.rad) / cellWidth);
+	index = x + (y * cellsWide) + (z * cellsWide * cellsWide);
+	gridPlacementBuffer[id.x * 7 + 4] = index;
+	y = (int)((particle.pos.y + gridWidth) / cellWidth);
+
+	// Calculate the z min/min cells.
+	z = (int)((particle.pos.z + gridWidth + particle.rad) / cellWidth);
+	index = x + (y * cellsWide) + (z * cellsWide * cellsWide);
+	gridPlacementBuffer[id.x * 7 + 5] = index;
+
+	z = (int)((particle.pos.z + gridWidth - particle.rad) / cellWidth);
+	index = x + (y * cellsWide) + (z * cellsWide * cellsWide);
+	gridPlacementBuffer[id.x * 7 + 6] = index;
+}
+
+#pragma kernel calculateParticleInteractions
+[numthreads(16, 1, 1)]
+void calculateParticleInteractions (uint id : SV_DispatchThreadID) {
+
+	int i, j, currentParticleID, checkParticleID;
+	float dist, dtemp;
+	float3 force;
+	// Get the count of the particles in the grid.
+	int c = gridContainedBuffer[id.x * 12];
+
+	for (i = 0; i < c; i++) {
+		currentParticleID = gridContainedBuffer[(id.x * 12) + 1 + i];
+
+		if (currentParticleID == -1)
+			break;
+
+		for (j = i + 1; j < c; j++) {
+
+			checkParticleID = gridContainedBuffer[(id.x * 12) + 1 + j];
+
+			if (checkParticleID == -1)
+				break;
+
+			// Get the distance and knock it to the interactionDistance.
+			dist = distance(particleBuffer[checkParticleID].pos, particleBuffer[currentParticleID].pos);
+			dist = max(interactionDistance - dist, 0);
+
+			// Get normalize direction of force.
+			force = normalize((particleBuffer[checkParticleID].pos - particleBuffer[currentParticleID].pos));
+
+			// Calculate the force.
+			dist = pow(dist, forceExponential);
+			force *= (dist * forceMod * F_TO_I);
+
+			// Add the forces.
+			InterlockedAdd(particleBuffer[currentParticleID].dx, (int)(-force.x / particleBuffer[currentParticleID].density));
+			InterlockedAdd(particleBuffer[currentParticleID].dy, (int)(-force.y / particleBuffer[currentParticleID].density));
+			InterlockedAdd(particleBuffer[currentParticleID].dz, (int)(-force.z / particleBuffer[currentParticleID].density));
+			InterlockedAdd(particleBuffer[checkParticleID].dx,    (int)(force.x / particleBuffer[checkParticleID].density));
+			InterlockedAdd(particleBuffer[checkParticleID].dy,    (int)(force.y / particleBuffer[checkParticleID].density));
+			InterlockedAdd(particleBuffer[checkParticleID].dz,    (int)(force.z / particleBuffer[checkParticleID].density));
+
+			// Convect heat between the particles.
+			dtemp = (particleBuffer[currentParticleID].temp - particleBuffer[checkParticleID].temp) / 2;
+			dtemp *= F_TO_I * convectionMod;
+
+			InterlockedAdd(particleBuffer[checkParticleID].dtemp,	 (int)dtemp);
+			InterlockedAdd(particleBuffer[currentParticleID].dtemp, -(int)dtemp);
+		}
+	}
+}
+
+#pragma kernel calculateIndividualParticles
+[numthreads (16, 1, 1)]
+void calculateIndividualParticles (uint id : SV_DispatchThreadID) {
+	// Get the distance from the core and the thickness of the mantle.
+	float dist = distance (float3(0, 0, 0), particleBuffer[id.x].pos) - coreRadius - particleBuffer[id.x].rad;
+	float mantleThickness = mantleRadius - coreRadius - (particleBuffer[id.x].rad * 2);
+
+	// Calculate the position of the point in the mantle.
+	float mantlePlacement = dist / mantleThickness;
+	float expectedTemp = ((1 - mantlePlacement) * coreTemperature) + (mantlePlacement * surfaceTemperature);
+
+	// Cacluate the delta for temperature.
+	InterlockedAdd (particleBuffer[id.x].dtemp, (int)((expectedTemp - particleBuffer[id.x].temp) * heatingMod * F_TO_I));
+
+
+	// Calculate sinking/rising forces due to temperature flux.
+	//  Hot particles will rise if they're far from the surface, cold particles will sink far from the core.
+	dist = distance (float3(0, 0, 0), particleBuffer[id.x].pos + particleBuffer[id.x].vel) - coreRadius - particleBuffer[id.x].rad;
+	mantlePlacement = (particleBuffer[id.x].temp - surfaceTemperature) / (coreTemperature - surfaceTemperature);
+	float expectedDist = (mantlePlacement * mantleThickness);
+	float3 dir = normalize(particleBuffer[id.x].pos);
+	float3 force = dir * ((expectedDist - dist) / 2) * sinkingMod * F_TO_I;
+
+	// Calculate friction of the particle.
+	force += -particleBuffer[id.x].vel * frictionMod * F_TO_I;
+
+	InterlockedAdd (particleBuffer[id.x].dx, (int)(force.x / particleBuffer[id.x].density));
+	InterlockedAdd (particleBuffer[id.x].dy, (int)(force.y / particleBuffer[id.x].density));
+	InterlockedAdd (particleBuffer[id.x].dz, (int)(force.z / particleBuffer[id.x].density));
+}
+
+#pragma kernel applyParticleForces
+[numthreads (16, 1, 1)]
+void applyParticleForces (uint id : SV_DispatchThreadID) {
+
+	float dx = (float)(I_TO_F * particleBuffer[id.x].dx);
+	float dy = (float)(I_TO_F * particleBuffer[id.x].dy);
+	float dz = (float)(I_TO_F * particleBuffer[id.x].dz);
+	float dtemp = (float)(I_TO_F * particleBuffer[id.x].dtemp);
+
+	particleBuffer[id.x].vel.x += dx * simSpeed;
+	particleBuffer[id.x].vel.y += dy * simSpeed;
+	particleBuffer[id.x].vel.z += dz * simSpeed;
+
+	particleBuffer[id.x].pos.x += particleBuffer[id.x].vel.x * simSpeed;
+	particleBuffer[id.x].pos.y += particleBuffer[id.x].vel.y * simSpeed;
+	particleBuffer[id.x].pos.z += particleBuffer[id.x].vel.z * simSpeed;
+
+	particleBuffer[id.x].temp += dtemp * simSpeed;
+
+	// Clamp particle into the mantle.
+	float dist = distance(float3(0, 0, 0), particleBuffer[id.x].pos);
+	float3 norm = normalize(particleBuffer[id.x].pos);
+	dist = max(coreRadius + particleBuffer[id.x].rad, min(mantleRadius - particleBuffer[id.x].rad, dist));
+
+	particleBuffer[id.x].pos = norm * dist;
+
+	// Reset the forces.
+	particleBuffer[id.x].dx = 0;
+	particleBuffer[id.x].dy = 0;
+	particleBuffer[id.x].dz = 0;
+	particleBuffer[id.x].dtemp = 0;
+}
