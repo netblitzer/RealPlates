@@ -5,67 +5,11 @@ using UnityEngine.Profiling;
 
 public class Planet : MonoBehaviour {
 
-    /*
-    PoissonRandom poisson;
-    public GameObject pointPrefab;
-    public List<GameObject> randomPoints;
-    Octree tree;
-
-    public float Radius = 10f;
-    public float MinimumDistance = 0.5f;
-    public int MaxAttemptsPerPoint = 10;
-
-    public int NumberOfPoints = 100;
-    public float jitter = 0f;
-
-    // Start is called before the first frame update
-    void Initialize ( ) {
-        if (this.poisson == null)
-            this.poisson = new PoissonRandom();
-
-        if (this.randomPoints == null)
-            this.randomPoints = new List<GameObject>();
-        else {
-            this.randomPoints.Clear();
-            while (this.transform.childCount > 0) {
-                Transform point = this.transform.GetChild(0);
-                DestroyImmediate(point.gameObject);
-            }
-        }
-    }
-
-    public void GeneratePlanet ( ) {
-        this.Initialize();
-
-        //List<Vector3> points = this.poisson.PoissonInsideSphere(this.MinimumDistance, this.MaxAttemptsPerPoint, this.transform.position, this.Radius, out this.tree);
-        List<Vector3> points = FibonacciSphere.GenerateFibonacciSmoother(this.NumberOfPoints, 0, 0);
-
-        foreach (Vector3 point in points) {
-            // Go through each point and push it to the edge of the sphere.
-            Vector3 unitPoint = point.normalized * this.Radius;
-
-            GameObject newRandom = Instantiate(this.pointPrefab);
-            newRandom.transform.parent = this.transform;
-            newRandom.transform.localPosition = unitPoint;
-            newRandom.name = "Point #" + (this.randomPoints.Count + 1);
-            this.randomPoints.Add(newRandom);
-        }
-    }
-
-    */
-
-    public GameObject MantleObject;
-    public Mantle mantle;
-
     public GameObject CoreObject;
 
     public int SubDivisions = 2;
     public float Jitter = 0f;
     public float PlanetRadius = 10f;
-
-    public float CoreRadius = 1f;
-    public float MantleRadius = 9.5f;
-    public float MantlePointDensity = 1f;
 
     public int MinPlateCount = 5;
     public int MaxPlateCount = 10;
