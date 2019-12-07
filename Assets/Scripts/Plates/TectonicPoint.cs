@@ -4,24 +4,27 @@ using System.Collections.Generic;
 
 public class TectonicPoint {
 
+    private Planet parentPlanet;
+
     public List<TectonicTriangle> parentTriangles;
+
+    public int Index;
 
     public Vector3 Position { get; private set; }
     public float Longitude { get; private set; }
     public float Latitude { get; private set; }
-
-    private float planetRadius;
     private int directionAdjust;
 
-    public TectonicPoint (Vector3 _startPos, float _radius) {
+    public TectonicPoint (Planet _parent, Vector3 _startPos, int _index) {
+        this.parentPlanet = _parent;
+        this.Index = _index;
         this.parentTriangles = new List<TectonicTriangle>();
 
-        this.planetRadius = _radius;
-        this.SetPosition(_startPos * this.planetRadius, _radius);
+        this.SetPosition(_startPos * this.parentPlanet.PlanetRadius);
         this.directionAdjust = 1;
     }
 
-    public void SetPosition (Vector3 _pos, float _radius) {
+    public void SetPosition (Vector3 _pos) {
         this.Position = _pos;
         /*
         this.Latitude = Mathf.Asin(_pos.y / _radius);
@@ -42,9 +45,9 @@ public class TectonicPoint {
 
     public void MovePoint (float _direction, float _amount) {
         // First get the circle plane for where the displacement point will be.
-        float planeDistance = this.SpheretoSphereIntersectionPlane(this.planetRadius, _amount);
+        float planeDistance = this.SpheretoSphereIntersectionPlane(this.parentPlanet.PlanetRadius, _amount);
         Vector3 planePosition = this.Position * (planeDistance / this.Position.magnitude);
-        float circleRadius = Mathf.Sqrt(Mathf.Pow(this.planetRadius, 2) - Mathf.Pow(planeDistance, 2));
+        float circleRadius = Mathf.Sqrt(Mathf.Pow(this.parentPlanet.PlanetRadius, 2) - Mathf.Pow(planeDistance, 2));
 
         // Calculate the displacement that will be moved.
         Vector3 displacement = new Vector3(0, Mathf.Cos(_direction), Mathf.Sin(_direction));
@@ -77,7 +80,7 @@ public class TectonicPoint {
         // Add the final component to the position.
         finalPosition += upDisplacement;
 
-        this.SetPosition(finalPosition, this.planetRadius);
+        this.SetPosition(finalPosition);
     }
     
     private Vector3 RotateVector ( Vector3 _original, Vector3 _axis, float _angle ) {

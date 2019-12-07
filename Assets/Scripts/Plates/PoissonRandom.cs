@@ -14,6 +14,7 @@ public class PoissonRandom {
         this.seed = _seed;
     }
 
+    /*
     public List<MantlePoint> PoissonMantle ( float _minDistanceBetweenPoints, int _newPointAttempts, Vector3 _center, float _mantleRadius, float _surfaceTemperature, float _coreTemperature,
         out Octree tree, GameObject _mantlePointPrefab, float _pointRadius, float _startingDensity, float _coreRadius = 0 ) {
 
@@ -101,6 +102,7 @@ public class PoissonRandom {
         // After all points are processed, return the final list.
         return finalPoints;
     }
+    */
 
     public List<Vector3> PoissonInsideSphere (float _minDistanceBetweenPoints, int _newPointAttempts, Vector3 _center, float _radius, out PointOctree tree, float _minRadius = float.NegativeInfinity) {
         // Generate the octTree.

@@ -4,11 +4,15 @@ using UnityEngine;
 
 public class TectonicTriangle {
 
-    public TectonicPoint[] points;
+    private Planet parentPlanet;
 
-    public TectonicPlate parentPlate;
+    private int[] pointIndices;
 
-    private TectonicTriangle[] neighbors;
+    public TectonicPlate parentPlate { get; private set; }
+
+    private TectonicTriangle[] edgeNeighbors;
+
+    private List<TectonicTriangle> pointNeighbors;
 
     public float AverageDensity { get; private set; }
 
@@ -18,15 +22,18 @@ public class TectonicTriangle {
 
     public float TriangleArea { get; private set; }
 
-    public TectonicTriangle (TectonicPoint _a, TectonicPoint _b, TectonicPoint _c) {
-        this.points = new TectonicPoint[] {_a, _b, _c};
+    public TectonicTriangle (Planet _parent, int _a, int _b, int _c) {
+        this.parentPlanet = _parent;
+        this.pointIndices = new int[] {_a, _b, _c};
+
+        this.pointNeighbors = new List<TectonicTriangle>();
 
         this.SetAsPointParent();
     }
 
     private void SetAsPointParent ( ) {
-        foreach (TectonicPoint point in this.points) {
-            point.SetParentTriangle(this);
+        foreach (int point in this.pointIndices) {
+            this.parentPlanet.TectonicPoints[point].SetParentTriangle(this);
         }
     }
 
@@ -35,12 +42,11 @@ public class TectonicTriangle {
     }
 
     public void CalculateNeighbors () {
-        List<TectonicTriangle> pointNeighbors = new List<TectonicTriangle>();
         List<TectonicTriangle> edgeNeighbors = new List<TectonicTriangle>();
 
         // Go through all our points and get the triangles they're a part of.
-        foreach (TectonicPoint point in this.points) {
-            List<TectonicTriangle> triangles = new List<TectonicTriangle>(point.parentTriangles);
+        foreach (int point in this.pointIndices) {
+            List<TectonicTriangle> triangles = new List<TectonicTriangle>(this.parentPlanet.TectonicPoints[point].parentTriangles);
 
             // Remove ourselves from the list.
             triangles.Remove(this);
@@ -48,29 +54,29 @@ public class TectonicTriangle {
             // Go through each and add it to our check lists.
             foreach (TectonicTriangle triangle in triangles) {
                 // If the triangle was already found amongst all triangles sharing a point, it means it shares two points and is along an edge.
-                if (pointNeighbors.Contains(triangle)) {
+                if (this.pointNeighbors.Contains(triangle)) {
                     edgeNeighbors.Add(triangle);
                 }
 
-                pointNeighbors.Add(triangle);
+                this.pointNeighbors.Add(triangle);
             }
         }
 
-        // Return the neighbors that share an edge.
-        this.neighbors = edgeNeighbors.ToArray();
+        // Set our lists/arrays of neighbors.
+        this.edgeNeighbors = edgeNeighbors.ToArray();
     }
 
     public TectonicTriangle[] GetNeighborTriangles () {
-        return this.neighbors;
+        return this.edgeNeighbors;
     }
 
     /// <summary>
-    /// Returns the points that make up this triangle.
+    /// Returns the point indices that make up this triangle.
     /// </summary>
     /// <returns></returns>
-    public TectonicPoint[] GetPoints () {
-        TectonicPoint[] array = new TectonicPoint[3];
-        this.points.CopyTo(array, 0);
+    public int[] GetPoints () {
+        int[] array = new int[3];
+        this.pointIndices.CopyTo(array, 0);
         return array;
     }
 }

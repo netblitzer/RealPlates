@@ -1,8 +1,11 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Profiling;
 
 public class TectonicPlate : MonoBehaviour {
+
+    private Planet parentPlanet;
 
     private List<TectonicTriangle> triangles;
 
@@ -12,10 +15,12 @@ public class TectonicPlate : MonoBehaviour {
 
     public float age;
 
+    public bool CanGrow;
+
     private List<TectonicTriangle> edgeTriangles;
 
-    public void Initialize (TectonicTriangle _rootTriangle) {
-
+    public void Initialize (Planet _parent, TectonicTriangle _rootTriangle) {
+        this.parentPlanet = _parent;
         this.triangles = new List<TectonicTriangle>();
         this.edgeTriangles = new List<TectonicTriangle>();
         this.triangles.Add(_rootTriangle);
@@ -23,6 +28,7 @@ public class TectonicPlate : MonoBehaviour {
         _rootTriangle.SetParentPlate(this);
 
         this.age = 0;
+        this.CanGrow = true;
 
         this.meshFilter = this.GetComponent<MeshFilter>();
         this.meshRenderer = this.GetComponent<MeshRenderer>();
@@ -82,20 +88,45 @@ public class TectonicPlate : MonoBehaviour {
             queue.RemoveAt(nextTriangle);
         }
 
+        this.CanGrow = false;
         return false;
     }
 
     public void UpdateMesh () {
-        List<Vector3> points = new List<Vector3>();
+        // Create a dictionary for storing the vector position of the points based on the planet index.
+        Dictionary<int, Vector3> meshPoints = new Dictionary<int, Vector3>();
+        // Create a dictionary for storing the index of the vector in the meshPoints based on the planet index.
+        Dictionary<int, int> meshIndices = new Dictionary<int, int>();
+        // How many unique points we've added.
+        int values = 0;
+
+        Profiler.BeginSample("Plate: Sample Triangle Positions/Indices");
+        // Go through all of the triangles and add their positions.
+        //  Add the index to a list so we can get accurate indices later.
+        for (int i = 0; i < this.triangles.Count; i++) {
+            int[] array = this.triangles[i].GetPoints();
+            for (int j = 0; j < 3; j++) {
+                if (!meshPoints.ContainsKey(array[j])) {
+                    meshPoints[array[j]] = this.parentPlanet.TectonicPoints[array[j]].Position;
+                    meshIndices[array[j]] = values;
+                    values++;
+                }
+            }
+        }
+        // Send all the vector positions to the mesh.   
+        List<Vector3> points = new List<Vector3>(meshPoints.Values);
+        Profiler.EndSample();
+
+        Profiler.BeginSample("Plate: Get Indices");
         List<int> indices = new List<int>();
 
         for (int i = 0; i < this.triangles.Count; i++) {
-            TectonicPoint[] array = this.triangles[i].GetPoints();
+            int[] array = this.triangles[i].GetPoints();
             for (int j = 0; j < 3; j++) {
-                points.Add(array[j].Position);
-                indices.Add(indices.Count);
+                indices.Add(meshIndices[array[j]]);
             }
         }
+        Profiler.EndSample();
 
         this.mesh.SetVertices(points);
         this.mesh.SetIndices(indices.ToArray(), MeshTopology.Triangles, 0);

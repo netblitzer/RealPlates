@@ -5,24 +5,41 @@ using UnityEngine.Profiling;
 
 public class Planet : MonoBehaviour {
 
-    public GameObject CoreObject;
+    public GameObject PlatePrefab;
 
+    public ComputeShader PlateCompute;
+
+    [Range(1, 10)]
     public int SubDivisions = 2;
+    [Range(0, 4f)]
     public float Jitter = 0f;
+    [Range(1, 100)]
     public float PlanetRadius = 10f;
 
-    public int MinPlateCount = 5;
-    public int MaxPlateCount = 10;
+    [Range(1, 10)]
+    public int MinSeedPlateCount = 5;
+    [Range(5, 20)]
+    public int MaxSeedPlateCount = 10;
+    [Range(0, 0.1f)]
+    public float NewSeedPlateChance = 0.005f;
 
-    private List<TectonicPoint> tectonicPoints;
     private List<TectonicTriangle> tectonicTriangles;
     private List<TectonicPlate> tectonicPlates;
 
-    public GameObject PlatePrefab;
+    // Array of all possible TectonicPoints including extra space.
+    public TectonicPoint[] TectonicPoints { get; private set; }
+    // List of all empty places in the tectonicPoints array.
+    public int[] UnusedIndices { get; private set; }
+
+    public int CurrentPointCount;
+    public int MaxPointCount;
 
     public bool GenerateRandomAxis = true;
     public Vector3 RotationAxis = Vector3.up;
     public float RotationSpeed = 15f;           // 15 degrees per second.
+
+    public bool GrowOverTime = false;
+    public int StepsPerFrame = 5;
 
     // For generation purposes.
     private List<Vector3> tempPositions;
@@ -32,7 +49,6 @@ public class Planet : MonoBehaviour {
         this.tempTriangles = new List<Triangle>();
         this.tempPositions = new List<Vector3>();
 
-        this.tectonicPoints = new List<TectonicPoint>();
         this.tectonicTriangles = new List<TectonicTriangle>();
         this.tectonicPlates = new List<TectonicPlate>();
 
@@ -179,13 +195,20 @@ public class Planet : MonoBehaviour {
 
     private void JitterPoints () {
         float adjustedJitterAmount = this.Jitter / Mathf.Max(Mathf.Pow(this.SubDivisions, 2), 1);
-        foreach (TectonicPoint point in this.tectonicPoints) {
+        TectonicPoint point;
+
+        Debug.Log(this.MaxPointCount);
+        Debug.Log(this.TectonicPoints.Length);
+
+        for (int i = 0; i < this.CurrentPointCount; i++) {
+            point = this.TectonicPoints[i];
             float jitterDistance = Random.Range(0, adjustedJitterAmount);
             float jitterDirection = Random.Range(-Mathf.PI, Mathf.PI);
             point.MovePoint(jitterDirection, jitterDistance);
         }
     }
 
+    /*
     private Mesh GenerateMesh () {
         Mesh newMesh = new Mesh();
         // Create the list of indices from triangles first.
@@ -207,7 +230,9 @@ public class Planet : MonoBehaviour {
 
         return newMesh;
     }
+    */
 
+    /*
     private void UpdateMesh () {
         // Get the positions for the mesh.
         List<Vector3> points = new List<Vector3>();
@@ -217,6 +242,89 @@ public class Planet : MonoBehaviour {
 
         // Set the mesh information.
         //this.mesh.SetVertices(points);
+    }
+    */
+
+    public TectonicPlate SeedNewPlate () {
+        int tries = 0;
+        int randomTriangle;
+
+        do {
+            randomTriangle = Random.Range(0, this.tectonicTriangles.Count);
+
+            if (this.tectonicTriangles[randomTriangle].parentPlate == null) {
+                GameObject plateObject = Instantiate<GameObject>(this.PlatePrefab);
+                plateObject.transform.parent = this.transform;
+
+                TectonicPlate plate = plateObject.GetComponent<TectonicPlate>();
+                plate.Initialize(this, this.tectonicTriangles[randomTriangle]);
+                this.tectonicPlates.Add(plate);
+                return plate;
+            }
+            tries++;
+        } while (tries < 100);
+
+        return null;
+    }
+
+    public void SeedPlates () {
+        int plateCount = Random.Range(this.MinSeedPlateCount, this.MaxSeedPlateCount);
+        Debug.Log("Plate count: " + plateCount);
+
+        for (int i = 0; i < plateCount; i++) {
+            this.SeedNewPlate();
+        }
+    }
+
+    public void GrowStartingPlates (bool _singleStep, int _stepsPerFrame) {
+
+        List<TectonicPlate> queue = new List<TectonicPlate>(this.tectonicPlates);
+        int j = 0;
+        while (j < queue.Count) {
+            if (!queue[j].CanGrow) {
+                queue.RemoveAt(j);
+            }
+            else {
+                j++;
+            }
+        }
+
+        // Set up how many steps can be done per call. If we're not stepping, have infinite "steps".
+        int stepCount = 0;
+        if (!_singleStep) {
+            _stepsPerFrame = int.MaxValue;
+        }
+
+        Profiler.BeginSample("Growing Plates");
+        while (queue.Count > 0 && stepCount < _stepsPerFrame) {
+            // See if we're generating a new plate.
+            float chance = Random.Range(0f, 1f);
+
+            if (chance < this.NewSeedPlateChance) {
+                TectonicPlate seededPlate = this.SeedNewPlate();
+                if (seededPlate != null) {
+                    queue.Add(seededPlate);
+                    Debug.Log("Added new plate");
+                }
+            }
+
+            int nextPlate = Random.Range(0, queue.Count);
+
+            bool tryToGrow = queue[nextPlate].GrowPlate();
+
+            if (!tryToGrow) {
+                queue.RemoveAt(nextPlate);
+            }
+
+            stepCount++;
+        }
+        Profiler.EndSample();
+
+        Profiler.BeginSample("Updating Plate Meshes");
+        for (int i = 0; i < this.tectonicPlates.Count; i++) {
+            this.tectonicPlates[i].UpdateMesh();
+        }
+        Profiler.EndSample();
     }
 
     public void GeneratePlanet () {
@@ -228,14 +336,28 @@ public class Planet : MonoBehaviour {
         this.AddIntialPoints();
         this.Subdivide(this.SubDivisions);
 
+        // Get the number of points currently.
+        this.CurrentPointCount = this.tempPositions.Count;
+
+        // Get the number of points the array should be.
+        this.MaxPointCount = (this.tempPositions.Count * 2);
+        this.MaxPointCount -= this.MaxPointCount % 16;
+        // Create the array for all the TectonicPoints.
+        this.TectonicPoints = new TectonicPoint[this.MaxPointCount];
+        this.UnusedIndices = new int[this.MaxPointCount];
+
         // Create all the TectonicPoints from the tempPositions.
-        foreach (Vector3 point in this.tempPositions) {
-            this.tectonicPoints.Add(new TectonicPoint(point, this.PlanetRadius));
+        for (int i = 0; i < this.tempPositions.Count; i++) {
+            this.TectonicPoints[i] = new TectonicPoint(this, this.tempPositions[i], i);
+        }
+        // Add all the unused indices to the list.
+        for (int i = 0; i < (this.MaxPointCount - this.tempPositions.Count); i++) {
+            this.UnusedIndices[i] = (this.tempPositions.Count + i);
         }
 
         // Create all the TectonicTriangles from the tempTriangles.
         foreach (Triangle tri in this.tempTriangles) {
-            this.tectonicTriangles.Add(new TectonicTriangle(this.tectonicPoints[tri.Indices[0]], this.tectonicPoints[tri.Indices[1]], this.tectonicPoints[tri.Indices[2]]));
+            this.tectonicTriangles.Add(new TectonicTriangle(this, tri.Indices[0], tri.Indices[1], tri.Indices[2]));
         }
 
         // Go through all the triangles and calculate their neighbors.
@@ -243,50 +365,19 @@ public class Planet : MonoBehaviour {
             triangle.CalculateNeighbors();
         }
 
-
         this.JitterPoints();
 
         //this.mesh = this.GenerateMesh();
         //this.filter.mesh = this.mesh;
         Debug.Log("Triangle count: " + this.tectonicTriangles.Count);
 
-        int plateCount = Random.Range(this.MinPlateCount, this.MaxPlateCount);
-        Debug.Log("Plate count: " + plateCount);
+        // Seed the initial plates for planet generation.
+        this.SeedPlates();
+        // If we're not growing seed plates over time, generate the plates now.
+        if (!this.GrowOverTime) {
+            this.GrowStartingPlates(this.GrowOverTime, this.StepsPerFrame);
 
-        for (int i = 0; i < plateCount; i++) {
-            int tries = 0;
-            int randomTriangle = Random.Range(0, this.tectonicTriangles.Count);
-
-            while (tries < 100) {
-                if (this.tectonicTriangles[randomTriangle].parentPlate == null) {
-                    GameObject plateObject = Instantiate<GameObject>(this.PlatePrefab);
-                    plateObject.transform.parent = this.transform;
-
-                    TectonicPlate plate = plateObject.GetComponent<TectonicPlate>();
-                    plate.Initialize(this.tectonicTriangles[randomTriangle]);
-                    this.tectonicPlates.Add(plate);
-                    break;
-                }
-
-                randomTriangle = Random.Range(0, this.tectonicTriangles.Count);
-                tries++;
-            }
-        }
-
-        List<TectonicPlate> queue = new List<TectonicPlate>(this.tectonicPlates);
-
-        while(queue.Count > 0) {
-            int nextPlate = Random.Range(0, queue.Count);
-
-            bool tryToGrow = queue[nextPlate].GrowPlate();
-
-            if (!tryToGrow) {
-                queue.RemoveAt(nextPlate);
-            }
-        }
-
-        for (int i = 0; i < this.tectonicPlates.Count; i++) {
-            this.tectonicPlates[i].UpdateMesh();
+            Debug.Log("Plate Count: " + this.tectonicPlates.Count);
         }
     }
 
@@ -295,9 +386,9 @@ public class Planet : MonoBehaviour {
     }
 
     void Update ( ) {
-        this.mantle.UpdateMantle();
-
-        this.CoreObject.transform.Rotate(this.RotationAxis, this.RotationSpeed * Time.deltaTime);
+        if (this.GrowOverTime && Input.GetKey(KeyCode.Space)) {
+            this.GrowStartingPlates(this.GrowOverTime, this.StepsPerFrame);
+        }
     }
 }
 

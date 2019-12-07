@@ -1,0 +1,20 @@
+﻿
+// Grid information
+float gridWidth;
+float cellWidth;
+int cellsWide;
+int maxPointsPerGrid;
+
+// Planet information
+float planetRadius;
+
+// Force information
+float interactionDistance;
+float forceMod;
+float forceExponential;
+float smoothingMod;
+
+// Extra
+float simSpeed;
+int F_TO_I;					// float to int
+float I_TO_F;				// int to float

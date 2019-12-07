@@ -16,7 +16,7 @@ public class Octree {
     const int maxObjects = 8;
 
     // The current list of gameobjects contained by this division.
-    public List<MantlePoint> containedObjects;
+    //public List<MantlePoint> containedObjects;
 
     // The depth of this division.
     public int depth;
@@ -75,6 +75,7 @@ public class Octree {
     /// </summary>
     /// <param name="_object">The object to insert into the octree.</param>
     /// <returns>True if the point is inserted into the octree successfully.</returns>
+    /*
     public bool InsertObject ( MantlePoint _object ) {
         // Make sure the point intersects with the octree.
         if (!this.Boundary.IntersectsSphere(_object.location, _object.radius)) {
@@ -120,6 +121,7 @@ public class Octree {
         // If a child couldn't hold the object, return false.
         return false;
     }
+    
 
     private void Subdivide ( ) {
         // Create the array of subdivisions.
@@ -263,6 +265,7 @@ public class Octree {
     }
     */
 
+        /*
     private bool UpdateInsert (MantlePoint _object) {
         // Make sure the point intersects with the octree.
         if (!this.Boundary.IntersectsSphere(_object.location, _object.radius)) {
@@ -328,4 +331,5 @@ public class Octree {
             return this.parent.InsertIntoParent(_object);
         }
     }
+    */
 }
