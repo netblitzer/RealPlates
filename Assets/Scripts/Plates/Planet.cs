@@ -44,6 +44,7 @@ public class Planet : MonoBehaviour {
     // For generation purposes.
     private List<Vector3> tempPositions;
     private List<Triangle> tempTriangles;
+    private bool platesGrown;
 
     private void Initialize () {
         this.tempTriangles = new List<Triangle>();
@@ -56,10 +57,13 @@ public class Planet : MonoBehaviour {
             this.RotationAxis = new Vector3(Random.Range(-1f, 1f), Random.Range(-1f, 1f), Random.Range(-1f, 1f)).normalized;
         }
 
+        // Remove all the previous plates and children from the planet.
         while(this.transform.childCount > 0) {
             Transform child = this.transform.GetChild(0);
             DestroyImmediate(child.gameObject);
         }
+
+        this.platesGrown = false;
     }
 
     #region IntialGeneration
@@ -245,7 +249,7 @@ public class Planet : MonoBehaviour {
     }
     */
 
-    public TectonicPlate SeedNewPlate () {
+    private TectonicPlate SeedNewPlate () {
         int tries = 0;
         int randomTriangle;
 
@@ -267,7 +271,7 @@ public class Planet : MonoBehaviour {
         return null;
     }
 
-    public void SeedPlates () {
+    private void SeedPlates () {
         int plateCount = Random.Range(this.MinSeedPlateCount, this.MaxSeedPlateCount);
         Debug.Log("Plate count: " + plateCount);
 
@@ -276,7 +280,7 @@ public class Planet : MonoBehaviour {
         }
     }
 
-    public void GrowStartingPlates (bool _singleStep, int _stepsPerFrame) {
+    private void GrowStartingPlates (bool _singleStep, int _stepsPerFrame) {
 
         List<TectonicPlate> queue = new List<TectonicPlate>(this.tectonicPlates);
         int j = 0;
@@ -287,6 +291,11 @@ public class Planet : MonoBehaviour {
             else {
                 j++;
             }
+        }
+
+        if (queue.Count == 0) {
+            this.platesGrown = true;
+            return;
         }
 
         // Set up how many steps can be done per call. If we're not stepping, have infinite "steps".
@@ -319,7 +328,9 @@ public class Planet : MonoBehaviour {
             stepCount++;
         }
         Profiler.EndSample();
+    }
 
+    private void UpdatePlateMeshes () {
         Profiler.BeginSample("Updating Plate Meshes");
         for (int i = 0; i < this.tectonicPlates.Count; i++) {
             this.tectonicPlates[i].UpdateMesh();
@@ -377,6 +388,8 @@ public class Planet : MonoBehaviour {
         if (!this.GrowOverTime) {
             this.GrowStartingPlates(this.GrowOverTime, this.StepsPerFrame);
 
+            this.UpdatePlateMeshes();
+
             Debug.Log("Plate Count: " + this.tectonicPlates.Count);
         }
     }
@@ -386,9 +399,11 @@ public class Planet : MonoBehaviour {
     }
 
     void Update ( ) {
-        if (this.GrowOverTime && Input.GetKey(KeyCode.Space)) {
+        if (this.GrowOverTime && !this.platesGrown && Input.GetKey(KeyCode.Space)) {
             this.GrowStartingPlates(this.GrowOverTime, this.StepsPerFrame);
         }
+
+        this.UpdatePlateMeshes();
     }
 }
 
