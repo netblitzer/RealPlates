@@ -6,7 +6,7 @@ public class TectonicTriangle {
 
     private Planet parentPlanet;
 
-    private int[] pointIndices;
+    public int[] PointIndices { get; private set; }
 
     public TectonicPlate parentPlate { get; private set; }
 
@@ -22,9 +22,11 @@ public class TectonicTriangle {
 
     public float TriangleArea { get; private set; }
 
+    public bool InternalTriangle { get; private set; }
+
     public TectonicTriangle (Planet _parent, int _a, int _b, int _c) {
         this.parentPlanet = _parent;
-        this.pointIndices = new int[] {_a, _b, _c};
+        this.PointIndices = new int[] {_a, _b, _c};
 
         this.pointNeighbors = new List<TectonicTriangle>();
 
@@ -32,7 +34,7 @@ public class TectonicTriangle {
     }
 
     private void SetAsPointParent ( ) {
-        foreach (int point in this.pointIndices) {
+        foreach (int point in this.PointIndices) {
             this.parentPlanet.TectonicPoints[point].SetParentTriangle(this);
         }
     }
@@ -45,7 +47,7 @@ public class TectonicTriangle {
         List<TectonicTriangle> edgeNeighbors = new List<TectonicTriangle>();
 
         // Go through all our points and get the triangles they're a part of.
-        foreach (int point in this.pointIndices) {
+        foreach (int point in this.PointIndices) {
             List<TectonicTriangle> triangles = new List<TectonicTriangle>(this.parentPlanet.TectonicPoints[point].parentTriangles);
 
             // Remove ourselves from the list.
@@ -66,6 +68,18 @@ public class TectonicTriangle {
         this.edgeNeighbors = edgeNeighbors.ToArray();
     }
 
+    public void CalculateInternalStatus () {
+        this.InternalTriangle = true;
+
+        // Go through each triangle we share points with and see if they're in our plate.
+        foreach (TectonicTriangle triangle in this.pointNeighbors) {
+
+            if (triangle.parentPlate.PlateIndex != this.parentPlate.PlateIndex) {
+                this.InternalTriangle = false;
+            }
+        }
+    }
+
     public TectonicTriangle[] GetNeighborTriangles () {
         return this.edgeNeighbors;
     }
@@ -76,8 +90,16 @@ public class TectonicTriangle {
     /// <returns></returns>
     public int[] GetPoints () {
         int[] array = new int[3];
-        this.pointIndices.CopyTo(array, 0);
+        this.PointIndices.CopyTo(array, 0);
         return array;
+    }
+
+    public float CalculateTriangleArea () {
+        Vector3 ab = this.parentPlanet.TectonicPoints[this.PointIndices[1]].Position - this.parentPlanet.TectonicPoints[this.PointIndices[0]].Position;
+        Vector3 bc = this.parentPlanet.TectonicPoints[this.PointIndices[2]].Position - this.parentPlanet.TectonicPoints[this.PointIndices[1]].Position;
+
+        this.TriangleArea = Vector3.Magnitude(Vector3.Cross(ab, bc)) / 2f;
+        return this.TriangleArea;
     }
 }
 

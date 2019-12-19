@@ -3,31 +3,26 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Profiling;
 
-public class TectonicPlate : MonoBehaviour {
+public class TectonicPlate {
 
     private Planet parentPlanet;
 
     private List<TectonicTriangle> triangles;
 
-    private Mesh mesh;
-    private MeshFilter meshFilter;
-    private MeshRenderer meshRenderer;
-
     public float age;
 
     public bool CanGrow;
 
+    public int PlateIndex;
+
     private List<TectonicTriangle> edgeTriangles;
 
-    // A dictionary for storing the index of a point's vector3 in the meshPositions based on the planet's index for the point.
-    private Dictionary<int, int> meshIndices;
-
-    public void Initialize (Planet _parent, TectonicTriangle _rootTriangle) {
+    public void Initialize (Planet _parent, TectonicTriangle _rootTriangle, int _index) {
         this.parentPlanet = _parent;
+        this.PlateIndex = _index;
 
         this.triangles = new List<TectonicTriangle>();
         this.edgeTriangles = new List<TectonicTriangle>();
-        this.meshIndices = new Dictionary<int, int>();
 
         this.triangles.Add(_rootTriangle);
         this.edgeTriangles.Add(_rootTriangle);
@@ -36,14 +31,11 @@ public class TectonicPlate : MonoBehaviour {
         this.age = 0;
         this.CanGrow = true;
 
-        this.meshFilter = this.GetComponent<MeshFilter>();
-        this.meshRenderer = this.GetComponent<MeshRenderer>();
-        this.mesh = new Mesh();
-        this.meshFilter.mesh = this.mesh;
-
+        // Create a new material with a random color.
         Material tempMaterial = new Material(Shader.Find("Diffuse"));
         tempMaterial.SetColor("_Color", new Color(Random.Range(100, 255) / 255f, Random.Range(100, 255) / 255f, Random.Range(100, 255) / 255f));
-        this.meshRenderer.material = tempMaterial;
+        // Send the material to the submesh.
+        this.parentPlanet.UpdateTectonicPlateMaterial(tempMaterial, this.PlateIndex);
     }
 
     public bool GrowPlate ( ) {
@@ -98,43 +90,17 @@ public class TectonicPlate : MonoBehaviour {
         return false;
     }
 
-    public void UpdateMesh () {
+    public void UpdateMesh ( ) {
 
-    // A dictionary for storing the vector position of the plate's points based on the planet's index for the point.
-    Dictionary<int, Vector3> meshPositions = new Dictionary<int, Vector3>();
-    // How many unique points we've added.
-    int values = 0;
-
-        Profiler.BeginSample("Plate: Sample Triangle Positions/Indices");
-        // Go through all of the triangles and add their positions.
-        //  Add the index to a list so we can get accurate indices later.
-        for (int i = 0; i < this.triangles.Count; i++) {
-            int[] array = this.triangles[i].GetPoints();
-            for (int j = 0; j < 3; j++) {
-                if (!meshPositions.ContainsKey(array[j])) {
-                    meshPositions[array[j]] = this.parentPlanet.TectonicPoints[array[j]].Position;
-                    this.meshIndices[array[j]] = values;
-                    values++;
-                }
-            }
-        }
-        // Send all the vector positions to the mesh.   
-        List<Vector3> points = new List<Vector3>(meshPositions.Values);
-        Profiler.EndSample();
-
-        Profiler.BeginSample("Plate: Get Indices");
+        Profiler.BeginSample("Plate: Updating Submesh Indices");
         List<int> indices = new List<int>();
 
         for (int i = 0; i < this.triangles.Count; i++) {
-            int[] array = this.triangles[i].GetPoints();
-            for (int j = 0; j < 3; j++) {
-                indices.Add(this.meshIndices[array[j]]);
-            }
+            indices.AddRange(this.triangles[i].GetPoints());
         }
-        Profiler.EndSample();
 
-        this.mesh.SetVertices(points);
-        this.mesh.SetIndices(indices.ToArray(), MeshTopology.Triangles, 0);
+        this.parentPlanet.UpdateTectonicPlateMesh(indices, this.PlateIndex);
+        Profiler.EndSample();
     }
 }
 

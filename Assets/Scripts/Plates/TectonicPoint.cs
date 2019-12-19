@@ -4,16 +4,28 @@ using System.Collections.Generic;
 
 public class TectonicPoint {
 
-    private Planet parentPlanet;
+    private readonly Planet parentPlanet;
 
     public List<TectonicTriangle> parentTriangles;
 
+    private List<int> neighborPointIndices;
+
     public int Index;
 
+    // Whether the point is shared by multiple plates or not.
+    public bool IsSharedPoint;
+
     public Vector3 Position { get; private set; }
+
     public float Longitude { get; private set; }
     public float Latitude { get; private set; }
     private int directionAdjust;
+
+    public float thickness;
+    public float density;
+
+    private Vector3 velocity;
+    private Vector3 force;
 
     public TectonicPoint (Planet _parent, Vector3 _startPos, int _index) {
         this.parentPlanet = _parent;
@@ -112,6 +124,51 @@ public class TectonicPoint {
         else {
             this.parentTriangles.Add(_triangle);
         }
+    }
+
+    public void CaculatePointNeighbors ( ) {
+        List<int> neighbors = new List<int>();
+        int firstPlate = -1;
+        bool sharedPoint = false;
+
+        foreach (TectonicTriangle parent in this.parentTriangles) {
+            for (int i = 0; i < 3; i++) {
+                if (this.Index != parent.PointIndices[i] && !neighbors.Contains(parent.PointIndices[i])) {
+                    neighbors.Add(parent.PointIndices[i]);
+                }
+            }
+
+            if (firstPlate == -1) {
+                firstPlate = parent.parentPlate.PlateIndex;
+            }
+            else if (firstPlate != parent.parentPlate.PlateIndex) {
+                sharedPoint = true;
+            }
+        }
+
+
+
+        this.neighborPointIndices = neighbors;
+    }
+
+    public void CalculatePointForce ( ) {
+        foreach (int pointIndex in this.neighborPointIndices) {
+            float distance = Vector3.Distance(this.Position, this.parentPlanet.TectonicPoints[pointIndex].Position);
+            Vector3 force = Vector3.Normalize(this.Position - this.parentPlanet.TectonicPoints[pointIndex].Position);
+
+            force *= this.parentPlanet.averageSideLength - distance;
+            this.force += force;
+        }
+    }
+
+    public void ApplyPointForce ( ) {
+        this.velocity += this.force * Time.deltaTime;
+        this.SetPosition(this.Position + (this.velocity * Time.deltaTime));
+
+        Vector3 normal = Vector3.Normalize(this.Position - this.parentPlanet.transform.position);
+        this.SetPosition(normal * this.parentPlanet.PlanetRadius);
+
+        this.force = Vector3.zero;
     }
 }
 

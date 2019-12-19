@@ -1,9 +1,19 @@
 ﻿
-// Grid information
-float gridWidth;
-float cellWidth;
-int cellsWide;
-int maxPointsPerGrid;
+// Structs
+struct TectonicPointStruct
+{
+	float3 pos;
+	float3 vel;
+	int dx;
+	int dy;
+	int dz;
+
+	int neighbors[12];
+	int neighborCount;
+};
+
+// Buffers
+RWStructuredBuffer<TectonicPointStruct> pointBuffer;	// Buffer of all the particle points.
 
 // Planet information
 float planetRadius;
@@ -15,6 +25,46 @@ float forceExponential;
 float smoothingMod;
 
 // Extra
-float simSpeed;
+float simSpeed;				// speed of simulation in ms
 int F_TO_I;					// float to int
 float I_TO_F;				// int to float
+
+
+#pragma kernel calculatePointForces
+[numthreads (16, 1, 1)]
+void calculatePointForces (uint3 id : SV_DispatchThreadID)
+{
+	int i, j, currentPointID, checkPointID;
+	float dist;
+	float3 force;
+}
+
+#pragma kernel applyPointForces
+[numthreads (16, 1, 1)]
+void applyPointForces (uint id : SV_DispatchThreadID)
+{
+
+	float dx = (float)(I_TO_F * pointBuffer[id.x].dx);
+	float dy = (float)(I_TO_F * pointBuffer[id.x].dy);
+	float dz = (float)(I_TO_F * pointBuffer[id.x].dz);
+
+	pointBuffer[id.x].vel.x += dx * (simSpeed / 1000);
+	pointBuffer[id.x].vel.y += dy * (simSpeed / 1000);
+	pointBuffer[id.x].vel.z += dz * (simSpeed / 1000);
+
+	pointBuffer[id.x].pos.x += pointBuffer[id.x].vel.x * (simSpeed / 1000);
+	pointBuffer[id.x].pos.y += pointBuffer[id.x].vel.y * (simSpeed / 1000);
+	pointBuffer[id.x].pos.z += pointBuffer[id.x].vel.z * (simSpeed / 1000);
+
+	// Clamp particle into the mantle.
+	//float dist = distance (float3(0, 0, 0), particleBuffer[id.x].pos);
+	//float3 norm = normalize (particleBuffer[id.x].pos);
+	//dist = max (coreRadius + particleBuffer[id.x].rad, min (mantleRadius - particleBuffer[id.x].rad, dist));
+	//
+	//particleBuffer[id.x].pos = norm * dist;
+
+	// Reset the forces.
+	pointBuffer[id.x].dx = 0;
+	pointBuffer[id.x].dy = 0;
+	pointBuffer[id.x].dz = 0;
+}
