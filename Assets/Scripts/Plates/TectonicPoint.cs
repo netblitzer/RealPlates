@@ -19,7 +19,7 @@ public class TectonicPoint {
 
     public float Longitude { get; private set; }
     public float Latitude { get; private set; }
-    private int directionAdjust;
+    public int DirectionAdjust { get; private set; }
 
     public float thickness;
     public float density;
@@ -33,7 +33,7 @@ public class TectonicPoint {
         this.parentTriangles = new List<TectonicTriangle>();
 
         this.SetPosition(_startPos * this.parentPlanet.PlanetRadius);
-        this.directionAdjust = 1;
+        this.DirectionAdjust = 1;
     }
 
     public void SetPosition (Vector3 _pos) {
@@ -55,6 +55,25 @@ public class TectonicPoint {
     }
     */
 
+    public float GetDirectionFromPoint (Vector3 _otherSpherePoint) {
+
+        // Calculate the axis towards the pole.
+        Vector3 upAxis, rightAxis;
+        if (this.Position.normalized == Vector3.up) {
+            // If we're at the north pole, we need to use the south pole for our up axis.
+            upAxis = -Vector3.Cross(this.Position, Vector3.down).normalized;
+        }
+        else {
+            upAxis = Vector3.Cross(this.Position, Vector3.up).normalized;
+        }
+        // Calculate the tangent axis.
+        rightAxis = Vector3.Cross(this.Position, upAxis).normalized;
+
+        // Calculate the amount the point is on the axis.
+        float dot = Vector3.Dot(rightAxis * this.DirectionAdjust, _otherSpherePoint.normalized);
+        return dot;
+    }
+
     public void MovePoint (float _direction, float _amount) {
         // First get the circle plane for where the displacement point will be.
         float planeDistance = this.SpheretoSphereIntersectionPlane(this.parentPlanet.PlanetRadius, _amount);
@@ -65,9 +84,9 @@ public class TectonicPoint {
         Vector3 displacement = new Vector3(0, Mathf.Cos(_direction), Mathf.Sin(_direction));
         displacement *= circleRadius;
 
-        // Calcualte the rotation axis' that will be used.
+        // Calculate the rotation axis' that will be used.
         Vector3 upAxis, rightAxis;
-        if (this.Position == Vector3.up) {
+        if (this.Position.normalized == Vector3.up) {
             // If we're at the north pole, we need to use the south pole for our up axis.
             upAxis = -Vector3.Cross(this.Position, Vector3.down).normalized;
         }
@@ -78,7 +97,7 @@ public class TectonicPoint {
 
         // Calculate the local displacement adjusted for rotation.
         Vector3 upDisplacement = upAxis * circleRadius * Mathf.Sin(_direction);
-        Vector3 rightDisplacement = rightAxis * circleRadius * Mathf.Cos(_direction) * this.directionAdjust;
+        Vector3 rightDisplacement = rightAxis * circleRadius * Mathf.Cos(_direction) * this.DirectionAdjust;
 
         // Get the new positon.
         Vector3 finalPosition = planePosition + rightDisplacement;
@@ -87,7 +106,7 @@ public class TectonicPoint {
         if (Mathf.Sign(Vector3.Dot(this.Position, Vector3.right)) != Mathf.Sign(Vector3.Dot(finalPosition, Vector3.right)) &&
             Mathf.Sign(Vector3.Dot(this.Position, Vector3.forward)) != Mathf.Sign(Vector3.Dot(finalPosition, Vector3.forward))) {
             Debug.Log("Point went over a pole.");
-            this.directionAdjust *= -1;
+            this.DirectionAdjust *= -1;
         }
         // Add the final component to the position.
         finalPosition += upDisplacement;
@@ -96,7 +115,7 @@ public class TectonicPoint {
     }
     
     private Vector3 RotateVector ( Vector3 _original, Vector3 _axis, float _angle ) {
-        // Find the cross and dot products from the original vector and the rotation axis.is.
+        // Find the cross and dot products from the original vector and the rotation axis.
         Vector3 cross = Vector3.Cross(_axis, _original);
         float dot = Vector3.Dot(_axis, _original);
 
@@ -176,9 +195,8 @@ public class TectonicPoint {
 //      Variables:
 //          ParentTriangles (List of triangles): the triangles that all contain this point.
 //          Position (Vector3): the position on the sphere of the planet that this point is at.
-//          Velocity (Vector3): the velocity that the point is currently traveling at.
-//          Forces (Vector3): the forces acting on this point this frame.
+//          Velocity (Vector2): the velocity that the point is currently traveling at.
+//          Forces (Vector2): the forces acting on this point this frame.
 //          Density (float): the density of this specific point.
 //          Thickness (float): the thickness this point is, built up over time from subducting other points.
-//          IsSubducting (bool): whether the point is currently being pulled under another plate. (might be unneeded)
 //          Age (float): how old the point is.
