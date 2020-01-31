@@ -32,7 +32,7 @@ public class TectonicPoint {
         this.Index = _index;
         this.parentTriangles = new List<TectonicTriangle>();
 
-        this.SetPosition(_startPos * this.parentPlanet.PlanetRadius);
+        this.SetPosition(_startPos * this.parentPlanet.planetSettings.PlanetRadius);
         this.DirectionAdjust = 1;
     }
 
@@ -55,6 +55,16 @@ public class TectonicPoint {
     }
     */
 
+    public void SetDensity (float _density)
+    {
+        this.density = _density;
+    }
+
+    public void SetThickness (float _thickness)
+    {
+        this.thickness = _thickness;
+    }
+
     public float GetDirectionFromPoint (Vector3 _otherSpherePoint) {
 
         // Calculate the axis towards the pole.
@@ -76,9 +86,9 @@ public class TectonicPoint {
 
     public void MovePoint (float _direction, float _amount) {
         // First get the circle plane for where the displacement point will be.
-        float planeDistance = this.SpheretoSphereIntersectionPlane(this.parentPlanet.PlanetRadius, _amount);
+        float planeDistance = this.SpheretoSphereIntersectionPlane(this.parentPlanet.planetSettings.PlanetRadius, _amount);
         Vector3 planePosition = this.Position * (planeDistance / this.Position.magnitude);
-        float circleRadius = Mathf.Sqrt(Mathf.Pow(this.parentPlanet.PlanetRadius, 2) - Mathf.Pow(planeDistance, 2));
+        float circleRadius = Mathf.Sqrt(Mathf.Pow(this.parentPlanet.planetSettings.PlanetRadius, 2) - Mathf.Pow(planeDistance, 2));
 
         // Calculate the displacement that will be moved.
         Vector3 displacement = new Vector3(0, Mathf.Cos(_direction), Mathf.Sin(_direction));
@@ -185,7 +195,7 @@ public class TectonicPoint {
         this.SetPosition(this.Position + (this.velocity * Time.deltaTime));
 
         Vector3 normal = Vector3.Normalize(this.Position - this.parentPlanet.transform.position);
-        this.SetPosition(normal * this.parentPlanet.PlanetRadius);
+        this.SetPosition(normal * this.parentPlanet.planetSettings.PlanetRadius);
 
         this.force = Vector3.zero;
     }

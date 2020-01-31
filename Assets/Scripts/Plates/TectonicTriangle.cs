@@ -8,6 +8,8 @@ public class TectonicTriangle {
 
     public int[] PointIndices { get; private set; }
 
+    public int[] SideIndices { get; private set; }
+
     public TectonicPlate parentPlate { get; private set; }
 
     private TectonicTriangle[] edgeNeighbors;
@@ -29,8 +31,25 @@ public class TectonicTriangle {
         this.PointIndices = new int[] {_a, _b, _c};
 
         this.pointNeighbors = new List<TectonicTriangle>();
+        this.edgeNeighbors = new TectonicTriangle[3];
 
         this.SetAsPointParent();
+
+        this.SideIndices = new int[3];
+        this.CreateHalfSides();
+    }
+
+    private void CreateHalfSides ( )
+    {
+        // Go through the three sides of the triangle and create the half sides.
+        for (int i = 0; i < 3; i++)
+        {
+            int j = (i + 1) % 3;
+
+            HalfSide newSide = new HalfSide(this, this.parentPlanet, this.PointIndices[i], this.PointIndices[j]);
+            this.SideIndices[i] = newSide.Index;
+            this.parentPlanet.SetHalfSide(newSide);
+        }
     }
 
     private void SetAsPointParent ( ) {
@@ -44,37 +63,29 @@ public class TectonicTriangle {
     }
 
     public void CalculateNeighbors () {
-        List<TectonicTriangle> edgeNeighbors = new List<TectonicTriangle>();
-
-        // Go through all our points and get the triangles they're a part of.
-        foreach (int point in this.PointIndices) {
-            List<TectonicTriangle> triangles = new List<TectonicTriangle>(this.parentPlanet.TectonicPoints[point].parentTriangles);
-
-            // Remove ourselves from the list.
-            triangles.Remove(this);
-
-            // Go through each and add it to our check lists.
-            foreach (TectonicTriangle triangle in triangles) {
-                // If the triangle was already found amongst all triangles sharing a point, it means it shares two points and is along an edge.
-                if (this.pointNeighbors.Contains(triangle)) {
-                    edgeNeighbors.Add(triangle);
-                }
-
-                this.pointNeighbors.Add(triangle);
-            }
+        // Grab the neighbor triangles (the opposite halfside to ours).
+        for (int i = 0; i < 3; i++)
+        {
+            this.edgeNeighbors[i] = this.parentPlanet.triangleSides[this.parentPlanet.triangleSides[this.SideIndices[i]].Opposite].parentTriangle;
         }
-
-        // Set our lists/arrays of neighbors.
-        this.edgeNeighbors = edgeNeighbors.ToArray();
     }
 
-    public void CalculateInternalStatus () {
+    public void CalculateInternalStatus ( )
+    {
+        // Intialize as internal.
         this.InternalTriangle = true;
 
-        // Go through each triangle we share points with and see if they're in our plate.
-        foreach (TectonicTriangle triangle in this.pointNeighbors) {
+        // Go through each of our halfsides and see if they're external.
+        for (int i = 0; i < 3; i++)
+        {
+            this.parentPlanet.triangleSides[this.SideIndices[i]].CalculateExternality();
 
-            if (triangle.parentPlate.PlateIndex != this.parentPlate.PlateIndex) {
+            // Also grab the neighbor triangles (the opposite halfside to ours).
+            this.edgeNeighbors[i] = this.parentPlanet.triangleSides[this.parentPlanet.triangleSides[this.SideIndices[i]].Opposite].parentTriangle;
+
+            // If the neighbor isn't in our plate, set the triangle as external.
+            if (this.edgeNeighbors[i].parentPlate.PlateIndex != this.parentPlate.PlateIndex)
+            {
                 this.InternalTriangle = false;
             }
         }

@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1acd3f2541d1ec14d9b18b3317918494, type: 3}
+  m_Name: defaultPlanetSettings
+  m_EditorClassIdentifier: 
+  SubDivisions: 3
+  Jitter: 0
+  PlanetRadius: 10
+  GenerateRandomAxis: 1
+  RotationSpeed: 15
+  plateSettings:
+    MinSeedPlateCount: 5
+    MaxSeedPlateCount: 10
+    NewSeedPlateChance: 0.005
+    PlateStartingRoughness: 0.2
+  generationSettings:
+    StepsPerFrame: 5
+    TrianglesPerStep: 5

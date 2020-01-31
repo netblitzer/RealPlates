@@ -7,14 +7,16 @@ using UnityEditor;
 public class TectonicsEditor : Editor {
 
     Planet planet;
+    Editor planetEditor;
 
     public override void OnInspectorGUI ( ) {
 
         using (var check = new EditorGUI.ChangeCheckScope()) {
             base.OnInspectorGUI();
 
-            if (check.changed) {
-                //this.plane.GeneratePoisson();
+            if (check.changed)
+            {
+                this.planet.GeneratePlanet();
             }
         }
 
@@ -22,7 +24,7 @@ public class TectonicsEditor : Editor {
             this.planet.GeneratePlanet();
         }
 
-        //this.DrawSettingsEditor(this.planet.shapeSettings, this.planet.OnShapeSettingsUpdated, ref this.planet.shapeSettingsFoldout, ref this.shapeEditor);
+        this.DrawSettingsEditor(this.planet.planetSettings, this.planet.OnPlanetSettingsUpdated, ref this.planet.planetSettingsFoldout, ref this.planetEditor);
         //this.DrawSettingsEditor(this.planet.colorSettings, this.planet.OnColorSettingsUpdated, ref this.planet.colorSettingsFoldout, ref this.colorEditor);
     }
 

@@ -31,11 +31,10 @@ public class TectonicPlate {
         this.age = 0;
         this.CanGrow = true;
 
-        // Create a new material with a random color.
-        Material tempMaterial = new Material(Shader.Find("Diffuse"));
-        tempMaterial.SetColor("_Color", new Color(Random.Range(100, 255) / 255f, Random.Range(100, 255) / 255f, Random.Range(100, 255) / 255f));
-        // Send the material to the submesh.
-        this.parentPlanet.UpdateTectonicPlateMaterial(tempMaterial, this.PlateIndex);
+        // Create a new color for the plate.
+        Color tempColor =  new Color(Random.Range(100, 255) / 255f, Random.Range(100, 255) / 255f, Random.Range(100, 255) / 255f);
+        // Send the color to the submesh.
+        this.parentPlanet.UpdateTectonicPlateMaterial(tempColor, this.PlateIndex);
     }
 
     public bool GrowPlate ( ) {
