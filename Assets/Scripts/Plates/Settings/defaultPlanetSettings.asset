@@ -21,7 +21,25 @@ MonoBehaviour:
     MinSeedPlateCount: 5
     MaxSeedPlateCount: 10
     NewSeedPlateChance: 0.005
-    PlateStartingRoughness: 0.2
+    PlateStartingThicknessVariance: 0
+    PlateStartingDensityVariance: 0
+    NewPlateMaterialDensity: 4
+    NewPlateMaterialDensityVariation: 4
+    NewPlateMaterialThickness: 3.5
+    NewPlateMaterialThicknessVariation: 0.2
+    CooledPlateDensityModifier: 1.2
+    CooledPlateMaxDensityAge: 100
+    HalfSideConnectionAge: 100
+    HalfSideConnectionMaxStrengthAge: 200
+    HalfSideConnectionStartingStrength: 5
+    HalfSideConnectionEndStrength: 8
+    SubductionDirectionRequirement: 0.7
+    SubductionDensityDifferenceRequirement: 0.25
+    SubductionThicknessDifferenceRequirement: 0.5
+    SubductionMaterialDifferenceRequirement: 0.25
+    SubductionElevationifferenceRequirement: 0.25
+    SubductionMaterialDensityBias: 0.5
+    SubductionThicknessLimit: 10
   generationSettings:
     StepsPerFrame: 5
     TrianglesPerStep: 5

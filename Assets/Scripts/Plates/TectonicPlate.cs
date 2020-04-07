@@ -95,7 +95,7 @@ public class TectonicPlate {
         List<int> indices = new List<int>();
 
         for (int i = 0; i < this.triangles.Count; i++) {
-            indices.AddRange(this.triangles[i].GetPoints());
+            indices.AddRange(this.triangles[i].GetPointIndices());
         }
 
         this.parentPlanet.UpdateTectonicPlateMesh(indices, this.PlateIndex);

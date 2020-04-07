@@ -14,7 +14,7 @@ public class PlanetSettings : ScriptableObject
     public float PlanetRadius = 10f;
 
     public bool GenerateRandomAxis = true;
-    [Range(0, 100, order = 5)]
+    [Range(0, 100)]
     public float RotationSpeed = 15f;           // 15 degrees per second.
 
     public PlateSettings plateSettings;

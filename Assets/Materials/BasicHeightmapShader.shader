@@ -38,9 +38,10 @@ Shader "Unlit/BasicHeightmapShader"
 				// transform position to clip space
 				// (multiply with model*view*projection matrix)
 
-				float heightMult = 1 + (((-4 * v.color.x) + (v.color.y * 0.1f)) / 10.0f);
+				float heightMult = (12.5 * v.color.y * (1 - (21 * v.color.x / 50)) / 70) - (2.5 * (1 + (0.1 * v.color.x)));
+				heightMult = 1 + heightMult / 10.0;
 
-				o.vertex = UnityObjectToClipPos(v.vertex * -heightMult);
+				o.vertex = UnityObjectToClipPos(v.vertex * heightMult);
 				// just pass the texture coordinate
 				o.uv = v.uv;
 				return o;

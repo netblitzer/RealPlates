@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
+using System;
 
 public class TectonicPoint {
 
@@ -15,45 +16,58 @@ public class TectonicPoint {
     // Whether the point is shared by multiple plates or not.
     public bool IsSharedPoint;
 
-    public Vector3 Position { get; private set; }
+    public Vector3 SpherePosition;
 
-    public float Longitude { get; private set; }
-    public float Latitude { get; private set; }
+    public Vector2 ProjectedPosition;
+
+    public float Longitude { get { return this.ProjectedPosition.x; } }
+    public float Latitude { get { return this.ProjectedPosition.y; } }
     public int DirectionAdjust { get; private set; }
 
     public float thickness;
     public float density;
+    public float materialAverageAge;
 
-    private Vector3 velocity;
-    private Vector3 force;
+    private Vector2 parentTrianglesTotalVelocity;
+    private int parentTrianglesActing;
 
     public TectonicPoint (Planet _parent, Vector3 _startPos, int _index) {
         this.parentPlanet = _parent;
         this.Index = _index;
         this.parentTriangles = new List<TectonicTriangle>();
 
-        this.SetPosition(_startPos * this.parentPlanet.planetSettings.PlanetRadius);
+        this.SetSpherePosition(_startPos);// * this.parentPlanet.planetSettings.PlanetRadius);
         this.DirectionAdjust = 1;
+
+        this.parentTrianglesActing = 0;
+        this.parentTrianglesTotalVelocity = Vector2.zero;
     }
 
-    public void SetPosition (Vector3 _pos) {
-        this.Position = _pos;
-        /*
-        this.Latitude = Mathf.Asin(_pos.y / _radius);
-        this.Longitude = Mathf.Atan2(_pos.z, _pos.x);
+    public void SetParentTriangle (TectonicTriangle _triangle) {
+        if (this.parentTriangles.Contains(_triangle)) {
+            this.parentTriangles.Remove(_triangle);
+        }
+        else {
+            this.parentTriangles.Add(_triangle);
+        }
+    }
+
+    public void SetSpherePosition (Vector3 _pos) {
+        this.SpherePosition = _pos;
+
+        this.ProjectedPosition = TectonicFunctions.MapSpherePointOntoProjected(_pos);
+
         if (float.IsNaN(this.Latitude) || float.IsNaN(this.Longitude)) {
             Debug.LogError("Something went wrong!");
         }
-        */
     }
 
-    /*
-    private void UpdatePosition (float _radius) {
-        this.Position = new Vector3((_radius * Mathf.Sin(this.Latitude) * Mathf.Cos(this.Longitude)),
-            (_radius * Mathf.Sin(this.Latitude) * Mathf.Sin(this.Longitude)),
-            (_radius * Mathf.Cos(this.Latitude)));
+    public void SetProjectedPosition (Vector2 _projected) {
+        this.ProjectedPosition.x = _projected.x % Mathf.PI;
+        this.ProjectedPosition.y = _projected.y % (Mathf.PI / 2f);
+
+        this.SpherePosition = TectonicFunctions.MapProjectedPointOntoSphere(_projected);
     }
-    */
 
     public void SetDensity (float _density)
     {
@@ -65,63 +79,105 @@ public class TectonicPoint {
         this.thickness = _thickness;
     }
 
-    public float GetDirectionFromPoint (Vector3 _otherSpherePoint) {
-
-        // Calculate the axis towards the pole.
-        Vector3 upAxis, rightAxis;
-        if (this.Position.normalized == Vector3.up) {
-            // If we're at the north pole, we need to use the south pole for our up axis.
-            upAxis = -Vector3.Cross(this.Position, Vector3.down).normalized;
-        }
-        else {
-            upAxis = Vector3.Cross(this.Position, Vector3.up).normalized;
-        }
-        // Calculate the tangent axis.
-        rightAxis = Vector3.Cross(this.Position, upAxis).normalized;
-
-        // Calculate the amount the point is on the axis.
-        float dot = Vector3.Dot(rightAxis * this.DirectionAdjust, _otherSpherePoint.normalized);
-        return dot;
+    public float GetElevation () {
+        return (12.5f * this.thickness * (1 - (21 * this.density / 50f)) / 70f) - (2.5f * (1 + (0.1f * this.density)));
     }
 
-    public void MovePoint (float _direction, float _amount) {
+    public Vector2 GetDirectionToPoint (Vector3 _otherSpherePoint, float _distanceAlongPath = 0.025f) {
+        // Find the vector to travel along to get direction.
+        Vector3 diff = _otherSpherePoint - this.SpherePosition;
+        // Use the midpoint between the two points and get the point along the path to then check for direction.
+        diff = ((_otherSpherePoint + this.SpherePosition) / 2f) + (diff * _distanceAlongPath);
+
+        // Calculate the new projected point.
+        Vector2 projectedPoint = TectonicFunctions.MapSpherePointOntoProjected(diff);
+
+        // Get the direction around the sphere.
+        Vector2 direction = (projectedPoint - this.ProjectedPosition);
+
+        // Ensure that crossing the -180 to 180 boundary doesn't break the direction.
+        direction.x = (direction.x < -Mathf.PI) ? direction.x + (Mathf.PI * 2f) : (direction.x > Mathf.PI) ? direction.x - (Mathf.PI * 2f) : direction.x;
+        // Return the normalized direction.
+        return direction.normalized;
+    }
+
+    public void MovePoint2 (Vector2 _direction, float _amount) {
+
+        Vector3 finalPosition;
+        Vector3 sideAxis;
+        if (this.SpherePosition != Vector3.up) {
+            sideAxis = Vector3.Cross(this.SpherePosition, Vector3.up).normalized;
+            finalPosition = this.RotateVector(this.SpherePosition, Vector3.up, _direction.y * _amount * Mathf.PI);
+            finalPosition = this.RotateVector(finalPosition, sideAxis, _direction.x * _amount * Mathf.PI * this.DirectionAdjust);
+        }
+        else {
+            sideAxis = Vector3.Cross(this.SpherePosition, Vector3.down).normalized;
+            finalPosition = this.RotateVector(this.SpherePosition, Vector3.down, _direction.y * _amount * Mathf.PI);
+            finalPosition = this.RotateVector(finalPosition, sideAxis, _direction.x * _amount * Mathf.PI * this.DirectionAdjust);
+        }
+
+        // See if we crossed over a pole.
+        if (Mathf.Sign(Vector3.Dot(this.SpherePosition, Vector3.right)) != Mathf.Sign(Vector3.Dot(finalPosition, Vector3.right)) &&
+            Mathf.Sign(Vector3.Dot(this.SpherePosition, Vector3.forward)) != Mathf.Sign(Vector3.Dot(finalPosition, Vector3.forward))) {
+            Debug.Log("Point went over a pole.");
+            this.DirectionAdjust *= -1;
+        }
+
+        this.SetSpherePosition(finalPosition);
+    }
+
+    public void MovePoint (Vector2 _direction, float _amount) {
         // First get the circle plane for where the displacement point will be.
+
+        /* This uses a planet radius. Easier to use a unit sphere.
         float planeDistance = this.SpheretoSphereIntersectionPlane(this.parentPlanet.planetSettings.PlanetRadius, _amount);
         Vector3 planePosition = this.Position * (planeDistance / this.Position.magnitude);
         float circleRadius = Mathf.Sqrt(Mathf.Pow(this.parentPlanet.planetSettings.PlanetRadius, 2) - Mathf.Pow(planeDistance, 2));
+        */
+
+        float planeDistance = this.SpheretoSphereIntersectionPlane(1, _amount);
+        Vector3 planePosition = this.SpherePosition * planeDistance;
+        float circleRadius = Mathf.Sqrt(1 - Mathf.Pow(planeDistance, 2));
 
         // Calculate the displacement that will be moved.
-        Vector3 displacement = new Vector3(0, Mathf.Cos(_direction), Mathf.Sin(_direction));
-        displacement *= circleRadius;
+        //Vector3 displacement = new Vector3(0, Mathf.Cos(_direction), Mathf.Sin(_direction));
+        //displacement *= circleRadius;
 
         // Calculate the rotation axis' that will be used.
         Vector3 upAxis, rightAxis;
-        if (this.Position.normalized == Vector3.up) {
+        if (this.SpherePosition.normalized == Vector3.up) {
             // If we're at the north pole, we need to use the south pole for our up axis.
-            upAxis = -Vector3.Cross(this.Position, Vector3.down).normalized;
+            upAxis = -Vector3.Cross(this.SpherePosition, Vector3.down).normalized;
         }
         else {
-            upAxis = Vector3.Cross(this.Position, Vector3.up).normalized;
+            upAxis = Vector3.Cross(this.SpherePosition, Vector3.up).normalized;
         }
-        rightAxis = Vector3.Cross(this.Position, upAxis).normalized;
+        rightAxis = Vector3.Cross(this.SpherePosition, upAxis).normalized;
 
         // Calculate the local displacement adjusted for rotation.
-        Vector3 upDisplacement = upAxis * circleRadius * Mathf.Sin(_direction);
-        Vector3 rightDisplacement = rightAxis * circleRadius * Mathf.Cos(_direction) * this.DirectionAdjust;
+        Vector3 upDisplacement = upAxis * circleRadius * _direction.y;
+        Vector3 rightDisplacement = rightAxis * circleRadius * _direction.x * this.DirectionAdjust;
 
         // Get the new positon.
         Vector3 finalPosition = planePosition + rightDisplacement;
 
         // See if we crossed over a pole.
-        if (Mathf.Sign(Vector3.Dot(this.Position, Vector3.right)) != Mathf.Sign(Vector3.Dot(finalPosition, Vector3.right)) &&
-            Mathf.Sign(Vector3.Dot(this.Position, Vector3.forward)) != Mathf.Sign(Vector3.Dot(finalPosition, Vector3.forward))) {
+        if (Mathf.Sign(Vector3.Dot(this.SpherePosition, Vector3.right)) != Mathf.Sign(Vector3.Dot(finalPosition, Vector3.right)) &&
+            Mathf.Sign(Vector3.Dot(this.SpherePosition, Vector3.forward)) != Mathf.Sign(Vector3.Dot(finalPosition, Vector3.forward))) {
             Debug.Log("Point went over a pole.");
             this.DirectionAdjust *= -1;
         }
         // Add the final component to the position.
         finalPosition += upDisplacement;
 
-        this.SetPosition(finalPosition);
+        // Make sure we don't end up on a pole.
+        if (finalPosition == Vector3.up || finalPosition == Vector3.down) {
+            // If we do, nudge the point slightly.
+            finalPosition += (rightDisplacement + upDisplacement) * 0.01f;
+            finalPosition.Normalize();
+        }
+
+        this.SetSpherePosition(finalPosition);
     }
     
     private Vector3 RotateVector ( Vector3 _original, Vector3 _axis, float _angle ) {
@@ -145,16 +201,6 @@ public class TectonicPoint {
         return distance;
     }
 
-
-    public void SetParentTriangle (TectonicTriangle _triangle) {
-        if (this.parentTriangles.Contains(_triangle)) {
-            this.parentTriangles.Remove(_triangle);
-        }
-        else {
-            this.parentTriangles.Add(_triangle);
-        }
-    }
-
     public void CaculatePointNeighbors ( ) {
         List<int> neighbors = new List<int>();
         int firstPlate = -1;
@@ -162,8 +208,8 @@ public class TectonicPoint {
 
         foreach (TectonicTriangle parent in this.parentTriangles) {
             for (int i = 0; i < 3; i++) {
-                if (this.Index != parent.PointIndices[i] && !neighbors.Contains(parent.PointIndices[i])) {
-                    neighbors.Add(parent.PointIndices[i]);
+                if (this.Index != parent.Points[i].Index && !neighbors.Contains(parent.Points[i].Index)) {
+                    neighbors.Add(parent.Points[i].Index);
                 }
             }
 
@@ -180,10 +226,11 @@ public class TectonicPoint {
         this.neighborPointIndices = neighbors;
     }
 
+    /*
     public void CalculatePointForce ( ) {
         foreach (int pointIndex in this.neighborPointIndices) {
-            float distance = Vector3.Distance(this.Position, this.parentPlanet.TectonicPoints[pointIndex].Position);
-            Vector3 force = Vector3.Normalize(this.Position - this.parentPlanet.TectonicPoints[pointIndex].Position);
+            float distance = Vector3.Distance(this.SpherePosition, this.parentPlanet.TectonicPoints[pointIndex].SpherePosition);
+            Vector3 force = Vector3.Normalize(this.SpherePosition - this.parentPlanet.TectonicPoints[pointIndex].SpherePosition);
 
             force *= this.parentPlanet.averageSideLength - distance;
             this.force += force;
@@ -192,12 +239,35 @@ public class TectonicPoint {
 
     public void ApplyPointForce ( ) {
         this.velocity += this.force * Time.deltaTime;
-        this.SetPosition(this.Position + (this.velocity * Time.deltaTime));
+        this.SetSpherePosition(this.SpherePosition + (this.velocity * Time.deltaTime));
 
-        Vector3 normal = Vector3.Normalize(this.Position - this.parentPlanet.transform.position);
-        this.SetPosition(normal * this.parentPlanet.planetSettings.PlanetRadius);
+        Vector3 normal = Vector3.Normalize(this.SpherePosition - this.parentPlanet.transform.position);
+        this.SetSpherePosition(normal * this.parentPlanet.planetSettings.PlanetRadius);
 
         this.force = Vector3.zero;
+    }
+    */
+
+    internal void AddParentTriangleVelocity (Vector2 _lateralVelocity, float _rotationVelocity) {
+        this.parentTrianglesTotalVelocity += _lateralVelocity;
+        this.parentTrianglesActing++;
+    }
+
+    internal void CalculatePointMovement (float _ageTimestep, float _movementTimestep) {
+        // Add to the points age.
+        this.materialAverageAge += _ageTimestep;
+
+        // Get the direction of the velocity movement.
+        Vector2 direction = this.parentTrianglesTotalVelocity.normalized;
+
+        // Move the point around the sphere based on the magnitude of the velocity. We divide
+        //  by the number of triangles to make sure points get the same average movement no
+        //  matter the number of parent triangles.
+        this.MovePoint(direction, this.parentTrianglesTotalVelocity.magnitude * _movementTimestep / (float)this.parentTrianglesActing);
+
+        // Reset the velocity and acting triangles count.
+        this.parentTrianglesTotalVelocity = Vector2.zero;
+        this.parentTrianglesActing = 0;
     }
 }
 
