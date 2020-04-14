@@ -18,6 +18,8 @@ public class TectonicTriangle {
 
     public float AverageThickness { get; private set; }
 
+    public float AverageAge { get; private set; }
+
     public float TriangleDirection { get; private set; }
 
     public float TriangleArea { get; private set; }
@@ -47,7 +49,7 @@ public class TectonicTriangle {
         this.SideIndices = new int[3];
         this.CreateHalfSides();
 
-        this.LateralVelocity = -Vector2.up;
+        this.InternalTriangle = false;
     }
 
     private void CreateHalfSides ()
@@ -73,6 +75,11 @@ public class TectonicTriangle {
 
     public void SetParentPlate (TectonicPlate _parent) {
         this.parentPlate = _parent;
+    }
+
+    public void SetInitialVelocity (Vector2 _velocity, float _rotational) {
+        this.LateralVelocity = _velocity;
+        this.RotationVelocity = _rotational;
     }
 
     public TectonicTriangle[] GetNeighborTriangles () {
@@ -162,12 +169,15 @@ public class TectonicTriangle {
 
         this.AverageDensity = 0f;
         this.AverageThickness = 0f;
+        this.AverageAge = 0f;
         for (int i = 0; i < 3; i++) {
             this.AverageDensity += this.Points[i].density;
             this.AverageThickness += this.Points[i].thickness;
+            this.AverageAge += this.Points[i].materialAverageAge;
         }
         this.AverageDensity /= 3f;
         this.AverageThickness /= 3f;
+        this.AverageAge /= 3f;
     }
 
     public void CalculateTriangleForces () {
@@ -209,6 +219,21 @@ public class TectonicTriangle {
         // Reset the forces.
         this.LateralForce = Vector2.zero;
         this.RotationalForce = 0;
+    }
+
+    public void TestRender (float _distance) {
+        // Get the center.
+        Vector3 centerPoint = Vector3.zero;
+        for (int i = 0; i < 3; i++) {
+            centerPoint += this.Points[i].SpherePosition;
+        }
+        centerPoint.Normalize();
+
+        // Get the point a distance from the center in the direction of movement.
+        Vector3 directionPoint = TectonicFunctions.MovePointAroundSphere(centerPoint, this.LateralVelocity.normalized, _distance);
+
+        Gizmos.color = Color.cyan;
+        Gizmos.DrawLine(centerPoint, directionPoint);
     }
 }
 

@@ -63,27 +63,33 @@ public class PlateSettings
     /// The age at which two triangles moving in similar directions will connect at their
     /// shared halfsides.
     /// </summary>
-    [Range(100, 100000)]
-    public int HalfSideConnectionAge = 100;
+    [Range(10, 100000)]
+    public int HalfSideConnectionAgeThreshold = 10;
     /// <summary>
     /// The age at which two triangles moving in similar directions will connect at their
     /// shared halfsides.
     /// </summary>
-    [Range(100, 100000)]
-    public int HalfSideConnectionMaxStrengthAge = 200;
+    [Range(10, 100000)]
+    public int HalfSideConnectionMaxStrengthAge = 20;
     /// <summary>
     /// The base strength that a connected halfside will have when it's first connected.
     /// Lower values will mean plates break up more easily.
     /// </summary>
-    [Range(1, 10)]
+    [Range(1f, 10f)]
     public float HalfSideConnectionStartingStrength = 5f;
     /// <summary>
     /// The maximum strength that a connected halfside will have when it's at the age for
     /// maximum strength.
     /// Lower values will mean plates break up more easily.
     /// </summary>
-    [Range(1, 10)]
+    [Range(1f, 10f)]
     public float HalfSideConnectionEndStrength = 8f;
+
+    /// <summary>
+    /// The speed two triangles have to be going differently for any interactions to occur.
+    /// </summary>
+    [Range(0f, 2f)]
+    public float TriangleVelocityDifferenceInteractionThreshold = 0.5f;
 
 
 

@@ -7,15 +7,19 @@ public class TectonicPlate {
 
     private Planet parentPlanet;
 
-    private List<TectonicTriangle> triangles;
+    public List<TectonicTriangle> triangles;
 
-    public float age;
+    public int TriangleCount { get { return this.triangles.Count; } }
+
+    public float averageTriangleAge;
 
     public bool CanGrow;
 
     public int PlateIndex;
 
     private List<TectonicTriangle> edgeTriangles;
+
+    public Color PlateColor { get; private set; }
 
     public void Initialize (Planet _parent, TectonicTriangle _rootTriangle, int _index) {
         this.parentPlanet = _parent;
@@ -28,16 +32,19 @@ public class TectonicPlate {
         this.edgeTriangles.Add(_rootTriangle);
         _rootTriangle.SetParentPlate(this);
 
-        this.age = 0;
+        this.averageTriangleAge = 0;
         this.CanGrow = true;
 
         // Create a new color for the plate.
-        Color tempColor =  new Color(Random.Range(100, 255) / 255f, Random.Range(100, 255) / 255f, Random.Range(100, 255) / 255f);
-        // Send the color to the submesh.
-        this.parentPlanet.UpdateTectonicPlateMaterial(tempColor, this.PlateIndex);
+        this.PlateColor = new Color(Random.Range(100, 255) / 255f, Random.Range(100, 255) / 255f, Random.Range(100, 255) / 255f);
     }
 
-    public bool GrowPlate ( ) {
+    public void ClearPlate ( ) {
+        this.triangles.Clear();
+        this.edgeTriangles.Clear();
+    }
+
+    public bool GrowPlate () {
         // Set up a queue of all the triangles to go through.
         List<TectonicTriangle> queue = new List<TectonicTriangle>(this.edgeTriangles);
 
@@ -89,7 +96,43 @@ public class TectonicPlate {
         return false;
     }
 
-    public void UpdateMesh ( ) {
+    public void CombinePlates (TectonicPlate _otherPlate) {
+        // Add all the other plate's triangles to this plate.
+        foreach (TectonicTriangle triangle in _otherPlate.triangles) {
+            this.triangles.Add(triangle);
+            triangle.SetParentPlate(this);
+        }
+
+        // Clear the other plate of its triangles and prepare it for removal.
+        _otherPlate.ClearPlate();
+
+        // Update our plate's data with the new triangles.
+        this.CalculateEdgeTriangles();
+        this.UpdatePlateInformation();
+    }
+
+    public void CalculateEdgeTriangles () {
+        // Clear our current edge triangles.
+        this.edgeTriangles.Clear();
+
+        // Go through all of our triangles.
+        foreach (TectonicTriangle triangle in this.triangles) {
+            // See which triangles aren't internal and add them to our edge triangles.
+            if (!triangle.InternalTriangle) {
+                this.edgeTriangles.Add(triangle);
+            }
+        }
+    }
+
+    public void UpdatePlateInformation () {
+        this.averageTriangleAge = 0f;
+        foreach (TectonicTriangle triangle in this.triangles) {
+            this.averageTriangleAge += triangle.AverageAge;
+        }
+        this.averageTriangleAge /= this.triangles.Count;
+    }
+
+    public void UpdateMesh () {
 
         Profiler.BeginSample("Plate: Updating Submesh Indices");
         List<int> indices = new List<int>();

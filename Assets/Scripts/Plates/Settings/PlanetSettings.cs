@@ -19,4 +19,5 @@ public class PlanetSettings : ScriptableObject
 
     public PlateSettings plateSettings;
     public GenerationSettings generationSettings;
+    public InitialPlanetGenerationSettings initalGenerationSettings;
 }

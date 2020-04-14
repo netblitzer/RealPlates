@@ -29,10 +29,11 @@ MonoBehaviour:
     NewPlateMaterialThicknessVariation: 0.2
     CooledPlateDensityModifier: 1.2
     CooledPlateMaxDensityAge: 100
-    HalfSideConnectionAge: 100
+    HalfSideConnectionAgeThreshold: 10
     HalfSideConnectionMaxStrengthAge: 200
     HalfSideConnectionStartingStrength: 5
     HalfSideConnectionEndStrength: 8
+    TriangleVelocityDifferenceInteractionThreshold: 0.05
     SubductionDirectionRequirement: 0.7
     SubductionDensityDifferenceRequirement: 0.25
     SubductionThicknessDifferenceRequirement: 0.5
@@ -41,5 +42,7 @@ MonoBehaviour:
     SubductionMaterialDensityBias: 0.5
     SubductionThicknessLimit: 10
   generationSettings:
-    StepsPerFrame: 5
+    AgeStepPerSecond: 1
     TrianglesPerStep: 5
+  initalGenerationSettings:
+    TriangleIntialVelocity: 0.5

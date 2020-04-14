@@ -75,7 +75,7 @@ public class HalfSidePair
     /// if they're converging and whether or not one is subducting, if they're diverging, 
     /// if they're creating a transform fault, or if they're connecting or connected.
     /// </summary>
-    public void CalculateHalfSideStatus () {
+    public void CalculateHalfSideStatus (float _ageStep) {
         // Get our halfsides and their parent triangles.
         HalfSide side1 = this.parentPlanet.triangleSides[this.firstHalf];
         HalfSide side2 = this.parentPlanet.triangleSides[this.secondHalf];
@@ -84,8 +84,21 @@ public class HalfSidePair
         TectonicTriangle triangle2 = side2.parentTriangle;
 
         // Get the amount the two triangle velocities are perpendicular to their opposing halfsides.
-        float tri1VelocityInline = Vector2.Dot(triangle1.LateralVelocity.normalized, side2.Direction);
-        float tri2VelocityInline = Vector2.Dot(triangle2.LateralVelocity.normalized, side1.Direction);
+        float tri1VelocityPerp = Vector2.Dot(triangle1.LateralVelocity.normalized, side2.Direction);
+        float tri2VelocityPerp = Vector2.Dot(triangle2.LateralVelocity.normalized, side1.Direction);
+        float tri1VelocityInline = (1 - Mathf.Abs(tri1VelocityPerp)) * Mathf.Sign(tri1VelocityPerp);
+        float tri2VelocityInline = (1 - Mathf.Abs(tri2VelocityPerp)) * Mathf.Sign(tri2VelocityPerp);
+
+        // Get the combined perpendicular and inline velocities.
+        float combinedPerp = tri1VelocityPerp + tri2VelocityPerp;
+        float combinedInline = tri1VelocityInline + tri2VelocityInline;
+
+        // Get the true combined velocities of the triangles.
+        Vector2 combinedVelocity = triangle1.LateralVelocity - triangle2.LateralVelocity;
+
+        // Get the sign of the velocities. If it's positive, they're moving towards or away from
+        //  each other. Negative is moving the same direction.
+        int combinedDirection = (int) (Mathf.Sign(tri1VelocityPerp) * Mathf.Sign(tri2VelocityPerp));
 
         // Get the difference in elevation and density between the two triangles non-shared points.
         float elevationDifference = Mathf.Abs(triangle1.GetOtherPoint(side1.Start, side1.End).GetElevation() -
@@ -97,7 +110,55 @@ public class HalfSidePair
         //  halfside pair based on the current status.
         switch (this.HalfSideStatus) {
             case HalfSideStatusType.Connecting:
+                // See if the triangles are moving fast enough to cause any interactions to occur.
+                if (combinedVelocity.magnitude > this.parentPlanet.planetSettings.plateSettings.TriangleVelocityDifferenceInteractionThreshold) {
+                    // See if the triangles are moving in opposite directions.
+                    if (combinedDirection == 1) {
+                        // If the triangles are moving in opposite directions, check to see if they're moving
+                        //  towards or away from each other.
+                        if (Mathf.Sign(tri1VelocityPerp) == 1 && Mathf.Sign(tri2VelocityPerp) == 1) {
+                            // The triangles are both moving towards each other.
+                            this.HalfSideStatus = HalfSideStatusType.Colliding;
+                        }
+                        else {
+                            // The triangles are moving away from each other.
+                            this.HalfSideStatus = HalfSideStatusType.Diverging;
+                        }
+                    }
+                    else {
+                        // If the triangles are moving in the same direction, see which direction they're going
+                        //  and whether one is pulling away or the other catching up.
+                        this.HalfSideStatus = HalfSideStatusType.Subducting;
+                    }
+                }
+                else {
+                    // If the triangles aren't moving fast enough to interact, they should continue to fuse/connect.
+                    this.ConnectionAge += _ageStep;
 
+                    // See if the age of the connection is enough to have connected/fused together.
+                    if (this.ConnectionAge > this.parentPlanet.planetSettings.plateSettings.HalfSideConnectionAgeThreshold) {
+                        this.HalfSideStatus = HalfSideStatusType.Connected;
+
+                        // Combine the plates of the triangles together if they don't share a plates (they shouldn't).
+                        if (triangle1.parentPlate.PlateIndex != triangle2.parentPlate.PlateIndex) {
+                            int primaryPlate, secondaryPlate;
+
+                            // Prefer to keep the larger plate.
+                            if (triangle1.parentPlate.TriangleCount >= triangle2.parentPlate.TriangleCount) {
+                                primaryPlate = triangle1.parentPlate.PlateIndex;
+                                secondaryPlate = triangle2.parentPlate.PlateIndex;
+                            }
+                            else {
+                                primaryPlate = triangle2.parentPlate.PlateIndex;
+                                secondaryPlate = triangle1.parentPlate.PlateIndex;
+                            }
+
+                            // Combine the plates and remove the excess one.
+                            this.parentPlanet.TectonicPlates[primaryPlate].CombinePlates(this.parentPlanet.TectonicPlates[secondaryPlate]);
+                            this.parentPlanet.RemovePlate(secondaryPlate);
+                        }
+                    }
+                }
                 break;
             case HalfSideStatusType.Connected:
 

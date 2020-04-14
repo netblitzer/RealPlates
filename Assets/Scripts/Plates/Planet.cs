@@ -22,7 +22,7 @@ public class Planet : MonoBehaviour {
     private List<TectonicTriangle> tectonicTriangles;
 
     // Array of all possible TectonicPlates including extra space.
-    private TectonicPlate[] tectonicPlates;
+    public TectonicPlate[] TectonicPlates { get; private set; }
     // List of all empty plate indices.
     private List<int> UnusedPlateIndices;
 
@@ -83,7 +83,7 @@ public class Planet : MonoBehaviour {
         this.triangleSidePairs = new Dictionary<int, HalfSidePair>();
 
         this.tectonicTriangles = new List<TectonicTriangle>();
-        this.tectonicPlates = new TectonicPlate[this.MaxPlateCount];
+        this.TectonicPlates = new TectonicPlate[this.MaxPlateCount];
         this.UnusedPlateIndices = new List<int>(this.MaxPlateCount);
 
         this.MaxPlateCount = this.PlateTextureWidth * this.PlateTextureWidth;
@@ -268,33 +268,6 @@ public class Planet : MonoBehaviour {
 
     #region General Planet Functions
 
-    public void UpdateTectonicPlateMesh(List<int> _triangleIndices, int _plateIndex) {
-        for (int i = 0; i < 3; i++) {
-            if (this.MeshIndices.Count <= (_plateIndex * 3) + i) {
-                this.MeshIndices.Insert((_plateIndex * 3) + i, _triangleIndices[i]);
-            }
-            else {
-                this.MeshIndices[(_plateIndex * 3) + i] = _triangleIndices[i];
-            }
-        }
-        
-        this.mesh.SetIndices(this.MeshIndices, MeshTopology.Triangles, 0);// _submesh);
-    }
-
-
-    public void UpdateTectonicPlateMaterial(Color _plateColor, int _submesh) {
-        Material subMeshMat = new Material(this.heightmapMaterial);
-        subMeshMat.SetColor("_Color", _plateColor);
-
-        if (this.submeshMaterials.Count <= _submesh) {
-            this.submeshMaterials.Add(subMeshMat);
-        }
-        else {
-            this.submeshMaterials[_submesh] = subMeshMat;
-        }
-        //this.mRenderer.materials = this.submeshMaterials.ToArray();
-    }
-
     public bool SetHalfSide(HalfSide _newSide)
     {
         return this.SetHalfSide(_newSide.Index, _newSide);
@@ -333,7 +306,109 @@ public class Planet : MonoBehaviour {
         }
     }
 
-    public bool RemoveHalfSide(HalfSide _side)
+    private void UpdatePlateMeshes () {
+        Profiler.BeginSample("Updating Plate Meshes");
+
+        //if (this.currentPhase == GenerationPhase.InitialPlateGeneration) {
+        //    this.mesh.subMeshCount = this.CurrentPlateCount;
+        //}
+
+        Profiler.BeginSample("Plate Meshes: Setting Shader");
+        // Get all the points for the mesh.
+        Vector3[] verts = new Vector3[this.CurrentPointCount];
+        Color[] colors = new Color[this.CurrentPointCount];
+        for (int i = 0; i < this.CurrentPointCount; i++) {
+            verts[i] = this.TectonicPoints[i].SpherePosition;
+            colors[i].r = this.TectonicPoints[i].density;
+            colors[i].g = this.TectonicPoints[i].thickness;
+        }
+
+        // Set the mesh vertices.
+        this.mesh.SetVertices(verts);
+        this.mesh.SetColors(colors);
+
+        Profiler.EndSample();
+
+        // Go through all the plates and have them update their individual submeshes.
+        /*for (int i = 0; i < this.CurrentPlateCount; i++) {
+            if (this.TectonicPlates[i] != null) {
+                this.TectonicPlates[i].UpdateMesh();
+            }
+        }*/
+
+        int plateTriangleRequirement = Mathf.Max(Mathf.RoundToInt(this.planetSettings.SubDivisions * this.planetSettings.SubDivisions), 2);
+        Dictionary<int, List<int>> plateMeshIndices = new Dictionary<int, List<int>>();
+        // Add the base submesh.
+        plateMeshIndices.Add(0, new List<int>());
+
+        foreach (TectonicTriangle triangle in this.tectonicTriangles) {
+            if (triangle.parentPlate.TriangleCount > plateTriangleRequirement) {
+                if (!plateMeshIndices.ContainsKey(triangle.parentPlate.PlateIndex + 1)) {
+                    plateMeshIndices.Add(triangle.parentPlate.PlateIndex + 1, new List<int>());
+                }
+                for (int i = 0; i < 3; i++) {
+                    plateMeshIndices[triangle.parentPlate.PlateIndex + 1].Add(triangle.Points[i].Index);
+                }
+            }
+            else {
+                for (int i = 0; i < 3; i++) {
+                    plateMeshIndices[0].Add(triangle.Points[i].Index);
+                }
+            }
+        }
+
+        this.mesh.subMeshCount = plateMeshIndices.Count;
+
+        int currentSubmesh = 0;
+        foreach(KeyValuePair<int, List<int>> submesh in plateMeshIndices) {
+            this.mesh.SetIndices(submesh.Value, MeshTopology.Triangles, currentSubmesh);
+
+            Material subMeshMat = new Material(this.heightmapMaterial);
+            if (submesh.Key > 0) {
+                subMeshMat.SetColor("_Color", this.TectonicPlates[submesh.Key - 1].PlateColor);
+            }
+
+            if (currentSubmesh >= this.submeshMaterials.Count) {
+                this.submeshMaterials.Insert(currentSubmesh, subMeshMat);
+            }
+            else {
+                this.submeshMaterials[currentSubmesh] = subMeshMat;
+            }
+
+            currentSubmesh++;
+        }
+        this.mRenderer.materials = this.submeshMaterials.ToArray();
+
+        Profiler.EndSample();
+    }
+
+    public void UpdateTectonicPlateMesh (List<int> _triangleIndices, int _plateIndex) {
+        for (int i = 0; i < 3; i++) {
+            if (this.MeshIndices.Count <= (_plateIndex * 3) + i) {
+                this.MeshIndices.Insert((_plateIndex * 3) + i, _triangleIndices[i]);
+            }
+            else {
+                this.MeshIndices[(_plateIndex * 3) + i] = _triangleIndices[i];
+            }
+        }
+
+        this.mesh.SetIndices(this.MeshIndices, MeshTopology.Triangles, 0);// _submesh);
+    }
+
+    public void UpdateTectonicPlateMaterial (Color _plateColor, int _submesh) {
+        Material subMeshMat = new Material(this.heightmapMaterial);
+        subMeshMat.SetColor("_Color", _plateColor);
+
+        if (this.submeshMaterials.Count <= _submesh) {
+            this.submeshMaterials.Add(subMeshMat);
+        }
+        else {
+            this.submeshMaterials[_submesh] = subMeshMat;
+        }
+        //this.mRenderer.materials = this.submeshMaterials.ToArray();
+    }
+
+    public bool RemoveHalfSide (HalfSide _side)
     {
         if (this.triangleSides.ContainsKey(_side.Index))
         {
@@ -347,9 +422,26 @@ public class Planet : MonoBehaviour {
         }
     }
 
+    public bool RemovePlate (TectonicPlate _plate) {
+        if (_plate.TriangleCount > 0) {
+            return false;
+        }
+
+        // Remove the plate from our list and add the index to the unused list.
+        this.TectonicPlates[_plate.PlateIndex] = null;
+        this.UnusedPlateIndices.Add(_plate.PlateIndex);
+        this.CurrentPlateCount--;
+
+        return true;
+    }
+
+    public bool RemovePlate (int _plateIndex) {
+        return this.RemovePlate(this.TectonicPlates[_plateIndex]);
+    }
+
     #endregion
 
-    #region Plate Generation Functions
+    #region Planet Generation Functions
 
     private void JitterPlanet () {
         float adjustedJitterAmount = this.planetSettings.Jitter / Mathf.Max(Mathf.Pow(this.planetSettings.SubDivisions, 2), 1);
@@ -366,8 +458,12 @@ public class Planet : MonoBehaviour {
                 7f + this.planetSettings.plateSettings.PlateStartingThicknessVariance));
         }
 
+        float adjustedJitterVelocity = this.planetSettings.initalGenerationSettings.TriangleIntialVelocity / Mathf.Max(Mathf.Pow(this.planetSettings.SubDivisions, 2), 1);
         for (int i = 0; i < this.tectonicTriangles.Count; i++) {
+            float jitterVelocity = Random.Range(0, adjustedJitterVelocity);
+            float jitterDirection = Random.Range(-Mathf.PI, Mathf.PI);
 
+            this.tectonicTriangles[i].SetInitialVelocity(new Vector2(Mathf.Cos(jitterDirection) * jitterVelocity, Mathf.Sin(jitterDirection) * jitterVelocity), 0f);
         }
     }
 
@@ -383,7 +479,7 @@ public class Planet : MonoBehaviour {
             if (this.tectonicTriangles[randomTriangle].parentPlate == null) {
                 TectonicPlate plate = new TectonicPlate();
                 plate.Initialize(this, this.tectonicTriangles[randomTriangle], this.CurrentPlateCount);
-                this.tectonicPlates[this.CurrentPlateCount] = plate;
+                this.TectonicPlates[this.CurrentPlateCount] = plate;
 
                 this.CurrentPlateCount++;
                 return plate;
@@ -409,8 +505,8 @@ public class Planet : MonoBehaviour {
         // Add all the plates that can grow to the current queue of plates.
         List<TectonicPlate> queue = new List<TectonicPlate>(this.CurrentPlateCount);
         for (int i = 0; i < this.CurrentPlateCount; i++) {
-            if (this.tectonicPlates[i].CanGrow) {
-                queue.Add(this.tectonicPlates[i]);
+            if (this.TectonicPlates[i].CanGrow) {
+                queue.Add(this.TectonicPlates[i]);
             }
         }
 
@@ -469,12 +565,12 @@ public class Planet : MonoBehaviour {
     }
 
     private void GeneratePlates () {
-        this.tectonicPlates = new TectonicPlate[this.tectonicTriangles.Count];
+        this.TectonicPlates = new TectonicPlate[this.tectonicTriangles.Count];
 
         foreach (TectonicTriangle triangle in this.tectonicTriangles) {
             TectonicPlate plate = new TectonicPlate();
             plate.Initialize(this, triangle, this.CurrentPlateCount);
-            this.tectonicPlates[this.CurrentPlateCount] = plate;
+            this.TectonicPlates[this.CurrentPlateCount] = plate;
 
             this.CurrentPlateCount++;
         }
@@ -492,33 +588,6 @@ public class Planet : MonoBehaviour {
         }
 
         this.ChangePhase(GenerationPhase.PlateSimulation);
-    }
-
-    private void UpdatePlateMeshes () {
-        Profiler.BeginSample("Updating Plate Meshes");
-
-        //if (this.currentPhase == GenerationPhase.InitialPlateGeneration) {
-        //    this.mesh.subMeshCount = this.CurrentPlateCount;
-        //}
-
-        // Get all the points for the mesh.
-        Vector3[] verts = new Vector3[this.CurrentPointCount];
-        Color[] colors = new Color[this.CurrentPointCount];
-        for (int i = 0; i < this.CurrentPointCount; i++) {
-            verts[i] = this.TectonicPoints[i].SpherePosition;
-            colors[i].r = this.TectonicPoints[i].density;
-            colors[i].g = this.TectonicPoints[i].thickness;
-        }
-
-        // Set the mesh vertices.
-        this.mesh.SetVertices(verts);
-        this.mesh.SetColors(colors);
-
-        // Go through all the plates and have them update their individual submeshes.
-        for (int i = 0; i < this.CurrentPlateCount; i++) {
-            this.tectonicPlates[i].UpdateMesh();
-        }
-        Profiler.EndSample();
     }
 
     public void GeneratePlanet () {
@@ -616,7 +685,7 @@ public class Planet : MonoBehaviour {
                 break;
             case GenerationPhase.InitialPlateGeneration:
                 if (Input.GetKey(KeyCode.Space)) {
-                    this.GrowStartingPlates(this.GrowOverTime, this.planetSettings.generationSettings.StepsPerFrame);
+                    //this.GrowStartingPlates(this.GrowOverTime, this.planetSettings.generationSettings.StepsPerFrame);
                 }
 
                 this.UpdatePlateMeshes();
@@ -625,13 +694,22 @@ public class Planet : MonoBehaviour {
                 for (int i = 0; i < this.CurrentPointCount; i++) {
                     this.TectonicPoints[i].CaculatePointNeighbors();
                 }
+
+                Profiler.BeginSample("Updating HalfSidePairs");
+                foreach (KeyValuePair<int, HalfSidePair> pairs in this.triangleSidePairs) {
+                    pairs.Value.CalculateHalfSideProperties();
+                    pairs.Value.CalculateHalfSideStatus(this.planetSettings.generationSettings.AgeStepPerSecond * Time.deltaTime);
+                }
+                Profiler.EndSample();
+
                 for (int i = 0; i < this.tectonicTriangles.Count; i++) {
                     //this.tectonicTriangles[i].CalculateTriangleForces();
                     this.tectonicTriangles[i].CalculateTriangleVelocity();
                 }
 
                 for (int i = 0; i < this.CurrentPointCount; i++) {
-                    this.TectonicPoints[i].CalculatePointMovement(Time.deltaTime, Time.deltaTime);
+                    //this.TectonicPoints[i].CalculatePointMovement(this.planetSettings.generationSettings.AgeStepPerSecond * Time.deltaTime, 
+                    //    this.planetSettings.generationSettings.AgeStepPerSecond * Time.deltaTime);
                 }
 
                 this.UpdatePlateMeshes();
@@ -639,13 +717,16 @@ public class Planet : MonoBehaviour {
         }
     }
 
-    private void OnDrawGizmos ( ) {
+    /*private void OnDrawGizmos ( ) {
 
         if (this.currentPhase == GenerationPhase.PlateSimulation) {
             foreach (KeyValuePair<int, HalfSidePair> pairs in this.triangleSidePairs) {
               pairs.Value.TestRender();
             }
+            for (int i = 0; i < this.tectonicTriangles.Count; i++) {
+                this.tectonicTriangles[i].TestRender(0.025f);
+            }
         }
-    }
+    }*/
 }
 
