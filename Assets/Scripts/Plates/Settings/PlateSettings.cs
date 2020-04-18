@@ -126,7 +126,7 @@ public class PlateSettings
     /// too similar, the minimum density is used.
     /// </summary>
     [Range(0f, 1f)]
-    public float SubductionElevationifferenceRequirement = 0.25f;
+    public float SubductionElevationDifferenceRequirement = 0.25f;
     /// <summary>
     /// The bias density has towards calculating material for subduction. The higher the bias,
     /// the more likely a plate with high density will subduct under another plate even if it

@@ -17,9 +17,15 @@ public class HalfSidePair
     // The direct length between the points making up this halfside pair.
     public float CordLength { get; private set; }
 
+    public float Inclination { get; private set; }
+
+    public float Longitude { get; private set; }
+
     public HalfSideStatusType HalfSideStatus;
 
     public float ConnectionAge;
+
+    public float Tension;
 
     public float ConnectionStrength { get {
             if (this.HalfSideStatus == HalfSideStatusType.Connected) {
@@ -68,6 +74,16 @@ public class HalfSidePair
         // Set the lengths of the halfsides.
         side1.SetLength(arc, cord);
         side2.SetLength(arc, cord);
+
+        // Calculate the plane that the halfsidepair passes through.
+        Vector3 planeNormal = Vector3.Cross(side1.Start.SpherePosition, side1.End.SpherePosition).normalized;
+
+        // Get the inclination of the plane.
+        this.Inclination = Mathf.Acos(Vector3.Dot(planeNormal, Vector3.up));
+
+        // Calculate the intersection normal.
+        Vector3 intersection = Vector3.Cross(planeNormal, Vector3.up).normalized;
+        this.Longitude = Mathf.Acos(Vector3.Dot(intersection, Vector3.forward));
     }
 
     /// <summary>
@@ -101,13 +117,86 @@ public class HalfSidePair
         int combinedDirection = (int) (Mathf.Sign(tri1VelocityPerp) * Mathf.Sign(tri2VelocityPerp));
 
         // Get the difference in elevation and density between the two triangles non-shared points.
-        float elevationDifference = Mathf.Abs(triangle1.GetOtherPoint(side1.Start, side1.End).GetElevation() -
-            triangle2.GetOtherPoint(side1.Start, side1.End).GetElevation());
-        float densityDifference = Mathf.Abs(triangle1.GetOtherPoint(side1.Start, side1.End).density -
-            triangle2.GetOtherPoint(side1.Start, side1.End).density);
+        float elevationDifference = triangle1.GetOtherPoint(side1.Start, side1.End).GetElevation() -
+            triangle2.GetOtherPoint(side1.Start, side1.End).GetElevation();
+        float densityDifference = triangle1.GetOtherPoint(side1.Start, side1.End).density -
+            triangle2.GetOtherPoint(side1.Start, side1.End).density;
+
 
         // Go through all the possible interactions that could be happening at this
         //  halfside pair based on the current status.
+
+        // See if the triangles are moving fast enough to cause any interactions to occur.
+        if (combinedVelocity.magnitude > this.parentPlanet.planetSettings.plateSettings.TriangleVelocityDifferenceInteractionThreshold) {
+            // See if the triangles are moving in opposite directions.
+            if (combinedDirection == 1) {
+                // If the triangles are moving in opposite directions, check to see if they're moving
+                //  towards or away from each other.
+                if (Mathf.Sign(tri1VelocityPerp) == 1 && Mathf.Sign(tri2VelocityPerp) == 1) {
+                    // The triangles are both moving towards each other.
+                    this.HalfSideStatus = HalfSideStatusType.Colliding;
+
+                    // See if either triangle is low enough to subduct.
+                    if (triangle1.GetOtherPoint(side1.Start, side1.End).GetElevation() < this.parentPlanet.planetSettings.plateSettings.SubductionThicknessLimit ||
+                        triangle2.GetOtherPoint(side1.Start, side1.End).GetElevation() < this.parentPlanet.planetSettings.plateSettings.SubductionThicknessLimit) {
+                        // See if the triangles have different enough elevations or densities to subduct.
+                        if (Mathf.Abs(elevationDifference) >= this.parentPlanet.planetSettings.plateSettings.SubductionElevationDifferenceRequirement ||
+                            Mathf.Abs(densityDifference) >= this.parentPlanet.planetSettings.plateSettings.SubductionDensityDifferenceRequirement) {
+                            // If the elevation or density is different enough, find out which triangle can
+                            //  subduct. Positive elevationDifference means triangle2 is lower.
+                        }
+                        else {
+                            // If we're colliding and one triangle could subduct but the triangles are too
+                            //  similar, build tension to reduce the difference requirements.
+                            this.Tension += _ageStep;
+                        }
+                    }
+                }
+                else {
+                    // The triangles are moving away from each other.
+                    this.HalfSideStatus = HalfSideStatusType.Diverging;
+                }
+            }
+            else {
+                // If the triangles are moving in the same direction, see which direction they're going
+                //  and whether one is pulling away or the other catching up.
+                this.HalfSideStatus = HalfSideStatusType.Subducting;
+            }
+        }
+        else {
+            // If the triangles aren't moving fast enough to interact, they should fuse/connect.
+            if (this.HalfSideStatus != HalfSideStatusType.Connected) {
+                this.ConnectionAge += _ageStep;
+                this.HalfSideStatus = HalfSideStatusType.Connecting;
+            }
+
+            // See if the age of the connection is enough to have connected/fused together.
+            if (this.ConnectionAge > this.parentPlanet.planetSettings.plateSettings.HalfSideConnectionAgeThreshold) {
+                this.HalfSideStatus = HalfSideStatusType.Connected;
+
+                // Combine the plates of the triangles together if they don't share a plates (they shouldn't).
+                if (triangle1.parentPlate.PlateIndex != triangle2.parentPlate.PlateIndex) {
+                    int primaryPlate, secondaryPlate;
+
+                    // Prefer to keep the larger plate.
+                    if (triangle1.parentPlate.TriangleCount >= triangle2.parentPlate.TriangleCount) {
+                        primaryPlate = triangle1.parentPlate.PlateIndex;
+                        secondaryPlate = triangle2.parentPlate.PlateIndex;
+                    }
+                    else {
+                        primaryPlate = triangle2.parentPlate.PlateIndex;
+                        secondaryPlate = triangle1.parentPlate.PlateIndex;
+                    }
+
+                    // Combine the plates and remove the excess one.
+                    this.parentPlanet.TectonicPlates[primaryPlate].CombinePlates(this.parentPlanet.TectonicPlates[secondaryPlate]);
+                    this.parentPlanet.RemovePlate(secondaryPlate);
+                }
+            }
+        }
+
+
+        /*
         switch (this.HalfSideStatus) {
             case HalfSideStatusType.Connecting:
                 // See if the triangles are moving fast enough to cause any interactions to occur.
@@ -132,8 +221,11 @@ public class HalfSidePair
                     }
                 }
                 else {
-                    // If the triangles aren't moving fast enough to interact, they should continue to fuse/connect.
-                    this.ConnectionAge += _ageStep;
+                    // If the triangles aren't moving fast enough to interact, they should fuse/connect.
+                    if (this.HalfSideStatus != HalfSideStatusType.Connected) {
+                        this.ConnectionAge += _ageStep;
+                        this.HalfSideStatus = HalfSideStatusType.Connecting;
+                    }
 
                     // See if the age of the connection is enough to have connected/fused together.
                     if (this.ConnectionAge > this.parentPlanet.planetSettings.plateSettings.HalfSideConnectionAgeThreshold) {
@@ -176,6 +268,7 @@ public class HalfSidePair
 
                 break;
         }
+        */
 
 
         /*
@@ -244,6 +337,6 @@ public class HalfSidePair
                 break;
         }
 
-        Gizmos.DrawLine(side1.Start.SpherePosition, side1.End.SpherePosition);
+        //Gizmos.DrawLine(side1.Start.SpherePosition, side1.End.SpherePosition);
     }
 }

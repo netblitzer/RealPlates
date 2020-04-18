@@ -8,6 +8,7 @@ using UnityEngine.Profiling;
 [RequireComponent(typeof(MeshRenderer))]
 public class Planet : MonoBehaviour {
 
+
     public GenerationPhase currentPhase;
 
     public ComputeShader PlateCompute;
@@ -717,16 +718,16 @@ public class Planet : MonoBehaviour {
         }
     }
 
-    /*private void OnDrawGizmos ( ) {
+    private void OnDrawGizmos ( ) {
 
         if (this.currentPhase == GenerationPhase.PlateSimulation) {
             foreach (KeyValuePair<int, HalfSidePair> pairs in this.triangleSidePairs) {
-              pairs.Value.TestRender();
+                pairs.Value.TestRender();
             }
-            for (int i = 0; i < this.tectonicTriangles.Count; i++) {
+            /*for (int i = 0; i < this.tectonicTriangles.Count; i++) {
                 this.tectonicTriangles[i].TestRender(0.025f);
-            }
+            }*/
         }
-    }*/
+    }
 }
 
