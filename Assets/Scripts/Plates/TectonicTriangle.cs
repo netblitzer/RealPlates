@@ -24,6 +24,8 @@ public class TectonicTriangle {
 
     public float TriangleArea { get; private set; }
 
+    public Vector3 TriangleCenter { get; private set; }
+
     public bool InternalTriangle { get; private set; }
 
 
@@ -34,6 +36,18 @@ public class TectonicTriangle {
     public float RotationalForce;
 
     public float RotationVelocity;
+
+
+    public Vector3 currentVelocityPlaneNormal;
+
+    public Vector3 localXZPlaneForward;
+
+    public float currentVelocity;
+
+
+    public Vector3 nextVelocityPlaneNormal;
+
+    private float nextVelocity;
 
     public TectonicTriangle (Planet _parent, int _a, int _b, int _c) :
         this(_parent, _parent.TectonicPoints[_a], _parent.TectonicPoints[_b], _parent.TectonicPoints[_c]) { }
@@ -77,10 +91,24 @@ public class TectonicTriangle {
         this.parentPlate = _parent;
     }
 
-    public void SetInitialVelocity (Vector2 _velocity, float _rotational) {
+    /*public void SetInitialVelocity (Vector2 _velocity, float _rotational) {
         this.LateralVelocity = _velocity;
         this.RotationVelocity = _rotational;
+    }*/
+
+    public void SetInitialVelocity (Vector2 _localDirection, float _amount) {
+        // Get the positive X vector for the triangle, keeping the vector on the X/Z plane.
+        this.localXZPlaneForward = Vector3.Cross(this.TriangleCenter, Vector3.up).normalized;
+        // Get the positive Y vector.
+        Vector3 uy = Vector3.Cross(this.localXZPlaneForward, this.TriangleCenter);
+
+        // Calculate the velocity plane normal for the triangle.
+        Vector3 offsetPoint = this.TriangleCenter + (this.localXZPlaneForward * _localDirection.x) + (uy * _localDirection.y);
+        this.currentVelocityPlaneNormal = Vector3.Cross(this.TriangleCenter, offsetPoint);
+
+        this.currentVelocity = _amount;
     }
+
 
     public TectonicTriangle[] GetNeighborTriangles () {
         return this.edgeNeighbors;
@@ -167,73 +195,180 @@ public class TectonicTriangle {
     public void CalculateTriangleInformation () {
         this.CalculateTriangleArea();
 
+        // Set everything back to 0.
+        this.TriangleCenter = Vector3.zero;
         this.AverageDensity = 0f;
         this.AverageThickness = 0f;
         this.AverageAge = 0f;
+
+        // Go through each point adding its data.
         for (int i = 0; i < 3; i++) {
             this.AverageDensity += this.Points[i].density;
             this.AverageThickness += this.Points[i].thickness;
             this.AverageAge += this.Points[i].materialAverageAge;
+            this.TriangleCenter += this.Points[i].SpherePosition;
         }
+
+        // Normalize the data.
         this.AverageDensity /= 3f;
         this.AverageThickness /= 3f;
         this.AverageAge /= 3f;
+        this.TriangleCenter /= 3f;
     }
 
-    public void CalculateTriangleForces () {
+    public void CalculateTriangleForces (float _timeStep) {
 
-        // Reset the forces on the triangle.
-        this.LateralForce = Vector2.zero;
-        this.RotationalForce = 0f;
+        // Reset the next velocity information.
+        //this.nextVelocity = 0f;
+        //this.nextVelocityPlaneNormal = Vector3.zero;
 
-        // Go through each of our halfsides and calculate the forces being acted on the triangle.
+        // Initialize variables.
+        float outOfPlanePercent, orientation;
+        Vector3 outOfPlane, inPlane;
+        Vector2 nextVelocityInPlane = Vector2.zero;
+
+        // Get the right vector to our triangle.
+        Vector3 right = Vector3.Cross(this.TriangleCenter, this.currentVelocityPlaneNormal);
+
+        // Go through each edge triangle and see what the next velocity would be.
         for (int i = 0; i < 3; i++) {
-            HalfSide ourSide = this.parentPlanet.triangleSides[this.SideIndices[i]];
-            HalfSide oppositeSide = this.parentPlanet.triangleSides[ourSide.Opposite];
-            TectonicTriangle oppositeTriangle = oppositeSide.parentTriangle;
+            // Calculate the amount that the triangle neighbor is in plane with the current triangle.
+            outOfPlanePercent = Vector3.Dot(this.TriangleCenter, this.edgeNeighbors[i].currentVelocityPlaneNormal);
+            outOfPlane = this.TriangleCenter * outOfPlanePercent;
 
-            // Calculate the amount the other triangle's velocity travels towards the triangle.
-            float perpDot = Vector2.Dot(ourSide.Direction, oppositeTriangle.LateralVelocity);
+            // Get the normal of the triangle neighbor in our plane.
+            inPlane = this.edgeNeighbors[i].currentVelocityPlaneNormal - outOfPlane;
 
-            // Calculate modifiers.
-            //  If our side is subducting or neither side is subducting, apply full force. If
-            //  the other side is subducting, apply a small amount of force.
-            float subductMod = 1; //ourSide.IsSubducting ? 1 : oppositeSide.IsSubducting ? 0.1f : 1;
+            // Calculate the orientation of the triangle neighbor's velocity plane compared to ours.
+            orientation = Mathf.Acos(Vector3.Dot(this.currentVelocityPlaneNormal, inPlane.normalized)) * Mathf.Sign(Vector3.Dot(right, inPlane));
 
-            // Calculate the forces based on the triangle we're checking.
-            this.LateralForce += oppositeTriangle.LateralVelocity * (1 - perpDot) * subductMod;
-            this.RotationalForce += oppositeTriangle.LateralVelocity.magnitude * perpDot * subductMod;
+            // Add to the next velocity.
+            nextVelocityInPlane += new Vector2(Mathf.Cos(orientation), Mathf.Sin(orientation)) * this.edgeNeighbors[i].currentVelocity;
         }
+
+        //Debug.Log("(" + (nextVelocityInPlane.x * 10f) + ", " + (nextVelocityInPlane.y * 10f) + ")");
+
+        // Calculate the next velocity's direction around the current point.
+        float pushFactor = 0.05f;
+        Vector2 nextVelocity2 = (Vector2.right * (1 - pushFactor) * this.currentVelocity) + (nextVelocityInPlane * pushFactor);
+
+        // Calculate the amount of friction being acted on the triangle based on its speed.
+        float frictionCoef = 1.05f;//nextVelocity2.magnitude / this.currentVelocity;
+        nextVelocity2 /= frictionCoef;
+
+        //Debug.Log("(" + (nextVelocity2.x * 10f) + ", " + (nextVelocity2.y * 10f) + ")");
+
+        // Calculate the next velocity plane normal for the triangle.
+        Vector3 offsetPoint = this.TriangleCenter + (-right * nextVelocity2.x) + (this.currentVelocityPlaneNormal * nextVelocity2.y);
+        this.nextVelocityPlaneNormal = Vector3.Cross(this.TriangleCenter, offsetPoint).normalized;
+
+        float maxSpeed = 0.05f;
+
+        // Get the next velocity amount.
+        this.nextVelocity = Mathf.Min(nextVelocity2.magnitude, maxSpeed);
     }
 
     public void CalculateTriangleVelocity () {
         // Add forces to the velocity.
-        this.LateralVelocity += this.LateralForce * Time.deltaTime;
-        this.RotationVelocity += this.RotationalForce * Time.deltaTime;
+        //this.LateralVelocity += this.LateralForce * Time.deltaTime;
+        //this.RotationVelocity += this.RotationalForce * Time.deltaTime;
+
+        Vector3 nextPosition;
+        float circleRadiusSize;
 
         // Apply the triangle's velocity to all the tectonic points that make it up.
         for (int i = 0; i < 3; i++) {
-            this.Points[i].AddParentTriangleVelocity(this.LateralVelocity, this.RotationVelocity);
+            // Calculate the decrease in circle size based on the distance from the plane the point is.
+            circleRadiusSize = Mathf.Cos(Vector3.Dot(this.Points[i].SpherePosition, this.nextVelocityPlaneNormal) * Mathf.PI / 2f);
+
+            nextPosition = TectonicFunctions.RotateVectorQuaternion(this.Points[i].SpherePosition, this.nextVelocityPlaneNormal, this.nextVelocity * circleRadiusSize);
+
+            this.Points[i].AddParentTriangleVelocity(nextPosition);
         }
+
+        // Now that we've used our velocities, move them to our "current" state.
+        this.currentVelocity = this.nextVelocity;
+        this.currentVelocityPlaneNormal = this.nextVelocityPlaneNormal;
 
         // Reset the forces.
-        this.LateralForce = Vector2.zero;
-        this.RotationalForce = 0;
+        //this.LateralForce = Vector2.zero;
+        //this.RotationalForce = 0;
     }
 
-    public void TestRender (float _distance) {
-        // Get the center.
-        Vector3 centerPoint = Vector3.zero;
-        for (int i = 0; i < 3; i++) {
-            centerPoint += this.Points[i].SpherePosition;
-        }
-        centerPoint.Normalize();
-
+    public void TestRender (float _distance, Color _forwardColor, bool _showNext = false) {
         // Get the point a distance from the center in the direction of movement.
-        Vector3 directionPoint = TectonicFunctions.MovePointAroundSphere(centerPoint, this.LateralVelocity.normalized, _distance);
+        //Vector3 directionPoint = TectonicFunctions.MovePointAroundSphere(this.TriangleCenter, this.LateralVelocity.normalized, _distance);
 
-        Gizmos.color = Color.cyan;
-        Gizmos.DrawLine(centerPoint, directionPoint);
+        Gizmos.color = Color.red;
+        //Gizmos.DrawLine(this.TriangleCenter, directionPoint);
+        //Gizmos.DrawLine(Vector3.zero, this.TriangleCenter);
+
+        Gizmos.color = _forwardColor;
+        Vector3 nextPoint = TectonicFunctions.RotateVectorQuaternion(this.TriangleCenter, this.currentVelocityPlaneNormal, this.currentVelocity);
+        Gizmos.DrawLine(this.TriangleCenter, nextPoint);
+        //Gizmos.DrawLine(Vector3.zero, this.localXZPlaneForward);
+        //Gizmos.DrawLine(Vector3.zero, Vector3.Cross(this.TriangleCenter, this.localXZPlaneForward).normalized);
+
+
+        if (_showNext) {
+            //Gizmos.DrawLine(Vector3.zero, this.currentVelocityPlaneNormal);
+
+            nextPoint = TectonicFunctions.RotateVectorQuaternion(this.TriangleCenter, this.nextVelocityPlaneNormal, this.nextVelocity);
+            Gizmos.color = Color.red;
+            Gizmos.DrawLine(this.TriangleCenter, nextPoint);
+
+            Vector3 planeOffset = Vector3.Cross(this.TriangleCenter, this.currentVelocityPlaneNormal).normalized;
+            Vector3[] meshVerts = new Vector3[] {
+            this.TriangleCenter + planeOffset,
+            this.TriangleCenter - planeOffset,
+            -this.TriangleCenter + planeOffset,
+            -this.TriangleCenter - planeOffset };
+
+            int[] meshIndices = new int[] { 1, 2, 0, 3, 2, 1 };
+
+            Mesh planeMesh = new Mesh();
+            planeMesh.SetVertices(meshVerts);
+            planeMesh.SetIndices(meshIndices, MeshTopology.Triangles, 0);
+            planeMesh.RecalculateNormals();
+
+            _forwardColor.a = 0.2f;
+            Gizmos.color = _forwardColor;
+            //Gizmos.DrawMesh(planeMesh);
+
+            Vector3 right = Vector3.Cross(this.TriangleCenter, this.currentVelocityPlaneNormal);
+
+            for (int i = 0; i < 3; i++) {
+                Color nextColor = new Color(0, 1, (i + 1) / 3f);
+                this.edgeNeighbors[i].TestRender(_distance, nextColor);
+                Gizmos.color = nextColor;
+
+                Vector3 outOfPlane = Vector3.Dot(this.TriangleCenter, this.edgeNeighbors[i].currentVelocityPlaneNormal) * this.TriangleCenter;
+                Vector3 inPlane = this.edgeNeighbors[i].currentVelocityPlaneNormal - outOfPlane;
+                //Gizmos.DrawLine(Vector3.zero, inPlane);
+
+                planeOffset = Vector3.Cross(this.TriangleCenter, inPlane).normalized;
+                meshVerts = new Vector3[] {
+                    this.TriangleCenter + planeOffset,
+                    this.TriangleCenter - planeOffset,
+                    -this.TriangleCenter + planeOffset,
+                    -this.TriangleCenter - planeOffset };
+
+                meshIndices = new int[] { 1, 2, 0, 3, 2, 1 };
+
+                planeMesh = new Mesh();
+                planeMesh.SetVertices(meshVerts);
+                planeMesh.SetIndices(meshIndices, MeshTopology.Triangles, 0);
+                planeMesh.RecalculateNormals();
+
+                nextColor.a = 0.2f;
+                Gizmos.color = nextColor;
+                //Gizmos.DrawMesh(planeMesh);
+
+                float orientation = Mathf.Acos(Vector3.Dot(this.currentVelocityPlaneNormal, inPlane.normalized)) * 180 / Mathf.PI * Mathf.Sign(Vector3.Dot(right, inPlane));
+                //Debug.Log("Triangle " + (i + 1) + ": o1=" + orientation);
+
+            }
+        }
     }
 }
 

@@ -30,6 +30,7 @@ public class TectonicPoint {
 
     private Vector2 parentTrianglesTotalVelocity;
     private int parentTrianglesActing;
+    private Vector3 futureExpectedPosition;
 
     public TectonicPoint (Planet _parent, Vector3 _startPos, int _index) {
         this.parentPlanet = _parent;
@@ -253,21 +254,31 @@ public class TectonicPoint {
         this.parentTrianglesActing++;
     }
 
+    internal void AddParentTriangleVelocity (Vector3 _expectedFuturePosition) {
+        this.futureExpectedPosition += _expectedFuturePosition;
+        this.parentTrianglesActing++;
+    }
+
     internal void CalculatePointMovement (float _ageTimestep, float _movementTimestep) {
         // Add to the points age.
         this.materialAverageAge += _ageTimestep;
 
+        // Move the point.
+        Vector3 nextPosition = (this.SpherePosition * Mathf.Max(0, 1 - _movementTimestep)) + (this.futureExpectedPosition / this.parentTrianglesActing * _movementTimestep);
+        this.SetSpherePosition(nextPosition.normalized);
+
         // Get the direction of the velocity movement.
-        Vector2 direction = this.parentTrianglesTotalVelocity.normalized;
+        //Vector2 direction = this.parentTrianglesTotalVelocity.normalized;
 
         // Move the point around the sphere based on the magnitude of the velocity. We divide
         //  by the number of triangles to make sure points get the same average movement no
         //  matter the number of parent triangles.
-        this.MovePoint(direction, this.parentTrianglesTotalVelocity.magnitude * _movementTimestep / (float)this.parentTrianglesActing);
+        //this.MovePoint(direction, this.parentTrianglesTotalVelocity.magnitude * _movementTimestep / (float)this.parentTrianglesActing);
 
         // Reset the velocity and acting triangles count.
         this.parentTrianglesTotalVelocity = Vector2.zero;
         this.parentTrianglesActing = 0;
+        this.futureExpectedPosition = Vector3.zero;
     }
 }
 

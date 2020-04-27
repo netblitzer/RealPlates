@@ -337,6 +337,7 @@ public class HalfSidePair
                 break;
         }
 
-        //Gizmos.DrawLine(side1.Start.SpherePosition, side1.End.SpherePosition);
+        Gizmos.color = new Color(1, 1, 1, 0.2f);
+        Gizmos.DrawLine(side1.Start.SpherePosition, side1.End.SpherePosition);
     }
 }

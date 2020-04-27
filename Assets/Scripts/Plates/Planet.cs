@@ -461,10 +461,10 @@ public class Planet : MonoBehaviour {
 
         float adjustedJitterVelocity = this.planetSettings.initalGenerationSettings.TriangleIntialVelocity / Mathf.Max(Mathf.Pow(this.planetSettings.SubDivisions, 2), 1);
         for (int i = 0; i < this.tectonicTriangles.Count; i++) {
-            float jitterVelocity = Random.Range(0, adjustedJitterVelocity);
-            float jitterDirection = Random.Range(-Mathf.PI, Mathf.PI);
+            float jitterVelocity = 0.025f;//Random.Range(0, adjustedJitterVelocity);
+            float jitterDirection = 0f;//Random.Range(-Mathf.PI, Mathf.PI);
 
-            this.tectonicTriangles[i].SetInitialVelocity(new Vector2(Mathf.Cos(jitterDirection) * jitterVelocity, Mathf.Sin(jitterDirection) * jitterVelocity), 0f);
+            this.tectonicTriangles[i].SetInitialVelocity(new Vector2(Mathf.Cos(jitterDirection), Mathf.Sin(jitterDirection)), jitterVelocity);
         }
     }
 
@@ -624,9 +624,10 @@ public class Planet : MonoBehaviour {
             this.tectonicTriangles.Add(new TectonicTriangle(this, tri.Indices[0], tri.Indices[1], tri.Indices[2]));
         }
 
-        // Go through all the triangles and calculate their neighbors.
+        // Go through all the triangles and calculate their neighbors and basic information.
         foreach (TectonicTriangle triangle in this.tectonicTriangles) {
             triangle.CalculateNeighbors();
+            triangle.CalculateTriangleInformation();
         }
 
         // Go through all the HalfSidePairs and calculate their lengths and directions.
@@ -659,8 +660,6 @@ public class Planet : MonoBehaviour {
             this.GeneratePlates();
 
             this.UpdatePlateMeshes();
-
-            Debug.Log("Final Plate Count: " + this.CurrentPlateCount);
         }
     }
 
@@ -698,19 +697,24 @@ public class Planet : MonoBehaviour {
 
                 Profiler.BeginSample("Updating HalfSidePairs");
                 foreach (KeyValuePair<int, HalfSidePair> pairs in this.triangleSidePairs) {
-                    pairs.Value.CalculateHalfSideProperties();
-                    pairs.Value.CalculateHalfSideStatus(this.planetSettings.generationSettings.AgeStepPerSecond * Time.deltaTime);
+                    //pairs.Value.CalculateHalfSideProperties();
+                    //pairs.Value.CalculateHalfSideStatus(this.planetSettings.generationSettings.AgeStepPerSecond * Time.deltaTime);
                 }
                 Profiler.EndSample();
 
                 for (int i = 0; i < this.tectonicTriangles.Count; i++) {
-                    //this.tectonicTriangles[i].CalculateTriangleForces();
+                    this.tectonicTriangles[i].CalculateTriangleInformation();
+                }
+                for (int i = 0; i < this.tectonicTriangles.Count; i++) {
+                    this.tectonicTriangles[i].CalculateTriangleForces(0.016f);//Time.deltaTime);
+                }
+                for (int i = 0; i < this.tectonicTriangles.Count; i++) {
                     this.tectonicTriangles[i].CalculateTriangleVelocity();
                 }
 
                 for (int i = 0; i < this.CurrentPointCount; i++) {
-                    //this.TectonicPoints[i].CalculatePointMovement(this.planetSettings.generationSettings.AgeStepPerSecond * Time.deltaTime, 
-                    //    this.planetSettings.generationSettings.AgeStepPerSecond * Time.deltaTime);
+                    this.TectonicPoints[i].CalculatePointMovement(0.016f, 0.016f);//this.planetSettings.generationSettings.AgeStepPerSecond * Time.deltaTime, 
+                        //this.planetSettings.generationSettings.AgeStepPerSecond * Time.deltaTime);
                 }
 
                 this.UpdatePlateMeshes();
@@ -718,16 +722,19 @@ public class Planet : MonoBehaviour {
         }
     }
 
-    private void OnDrawGizmos ( ) {
+    /*private void OnDrawGizmos ( ) {
 
         if (this.currentPhase == GenerationPhase.PlateSimulation) {
             foreach (KeyValuePair<int, HalfSidePair> pairs in this.triangleSidePairs) {
                 pairs.Value.TestRender();
             }
-            /*for (int i = 0; i < this.tectonicTriangles.Count; i++) {
-                this.tectonicTriangles[i].TestRender(0.025f);
-            }*/
+            for (int i = 0; i < this.tectonicTriangles.Count; i++) {
+                this.tectonicTriangles[i].CalculateTriangleInformation();
+            }
+            for (int i = 0; i < 1; i++) {
+                this.tectonicTriangles[i].TestRender(0.025f, Color.yellow, true);
+            }
         }
-    }
+    }*/
 }
 

@@ -38,7 +38,7 @@ MonoBehaviour:
     SubductionDensityDifferenceRequirement: 0.25
     SubductionThicknessDifferenceRequirement: 0.5
     SubductionMaterialDifferenceRequirement: 0.25
-    SubductionElevationifferenceRequirement: 0.25
+    SubductionElevationDifferenceRequirement: 0.25
     SubductionMaterialDensityBias: 0.5
     SubductionThicknessLimit: 10
   generationSettings:
