@@ -6,7 +6,7 @@ using UnityEngine;
 public class PlanetSettings : ScriptableObject
 {
 
-    [Range(1, 10)]
+    [Range(0, 10)]
     public int SubDivisions = 2;
     [Range(0, 4f)]
     public float Jitter = 0f;

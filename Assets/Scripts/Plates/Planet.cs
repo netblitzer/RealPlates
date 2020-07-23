@@ -4,8 +4,7 @@ using UnityEngine;
 using UnityEngine.Profiling;
 
 
-[RequireComponent(typeof(MeshFilter))]
-[RequireComponent(typeof(MeshRenderer))]
+[RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
 public class Planet : MonoBehaviour {
 
 
@@ -165,20 +164,20 @@ public class Planet : MonoBehaviour {
         this.tempTriangles.Add(new Triangle(0, 7, 10));
         this.tempTriangles.Add(new Triangle(0, 10, 11));
         this.tempTriangles.Add(new Triangle(1, 5, 9));
-        this.tempTriangles.Add(new Triangle(5, 11, 4));
-        this.tempTriangles.Add(new Triangle(11, 10, 2));
-        this.tempTriangles.Add(new Triangle(10, 7, 6));
-        this.tempTriangles.Add(new Triangle(7, 1, 8));
+        this.tempTriangles.Add(new Triangle(2, 4, 11));
         this.tempTriangles.Add(new Triangle(3, 9, 4));
         this.tempTriangles.Add(new Triangle(3, 4, 2));
         this.tempTriangles.Add(new Triangle(3, 2, 6));
         this.tempTriangles.Add(new Triangle(3, 6, 8));
         this.tempTriangles.Add(new Triangle(3, 8, 9));
         this.tempTriangles.Add(new Triangle(4, 9, 5));
-        this.tempTriangles.Add(new Triangle(2, 4, 11));
+        this.tempTriangles.Add(new Triangle(5, 11, 4));
         this.tempTriangles.Add(new Triangle(6, 2, 10));
+        this.tempTriangles.Add(new Triangle(7, 1, 8));
         this.tempTriangles.Add(new Triangle(8, 6, 7));
         this.tempTriangles.Add(new Triangle(9, 8, 1));
+        this.tempTriangles.Add(new Triangle(10, 7, 6));
+        this.tempTriangles.Add(new Triangle(11, 10, 2));
     }
 
     private void Subdivide(int _divisions) {
@@ -442,6 +441,7 @@ public class Planet : MonoBehaviour {
 
     #endregion
 
+
     #region Planet Generation Functions
 
     private void JitterPlanet () {
@@ -464,7 +464,7 @@ public class Planet : MonoBehaviour {
             float jitterVelocity = Random.Range(0, adjustedJitterVelocity);
             float jitterDirection = Random.Range(-Mathf.PI, Mathf.PI);
 
-            this.tectonicTriangles[i].SetInitialVelocity(new Vector2(Mathf.Cos(jitterDirection) * jitterVelocity, Mathf.Sin(jitterDirection) * jitterVelocity), 0f);
+            this.tectonicTriangles[i].SetInitialVelocity(new Vector2(Mathf.Cos(jitterDirection), Mathf.Sin(jitterDirection)), jitterVelocity);
         }
     }
 
@@ -592,6 +592,9 @@ public class Planet : MonoBehaviour {
     }
 
     public void GeneratePlanet () {
+        this.TestSetup();
+        return;
+
         // Initialize the planet and components.
         this.Initialize();
         this.InitializeGameObject();
@@ -674,11 +677,11 @@ public class Planet : MonoBehaviour {
     #endregion
 
     /// ---- Unity Functions ---- ///
-
+    
     void Start ( ) {
         this.GeneratePlanet();
     }
-
+    /*
     void Update ( ) {
         switch (this.currentPhase) {
             case GenerationPhase.Setup:
@@ -722,12 +725,244 @@ public class Planet : MonoBehaviour {
 
         if (this.currentPhase == GenerationPhase.PlateSimulation) {
             foreach (KeyValuePair<int, HalfSidePair> pairs in this.triangleSidePairs) {
-                pairs.Value.TestRender();
+                //pairs.Value.TestRender();
             }
-            /*for (int i = 0; i < this.tectonicTriangles.Count; i++) {
+            for (int i = 0; i < 1; i++) {
                 this.tectonicTriangles[i].TestRender(0.025f);
-            }*/
+            }
         }
+    }
+    */
+
+    List<PTPoint> points;
+    List<PTTriangle> triangles;
+    List<PTHalfSide> sides;
+    List<PTBoundary> boundaries;
+    List<PTBoundaryGapCap> boundaryCaps;
+    Icosahedron icosahedron;
+
+    private void TestSetup() {
+
+        this.Initialize();
+        this.InitializeGameObject();
+
+
+        this.icosahedron = new Icosahedron();
+
+        this.icosahedron.Initialize(this.planetSettings.SubDivisions, false);
+
+        this.icosahedron.GenerateSphere();
+
+
+        this.points = new List<PTPoint>();
+        this.triangles = new List<PTTriangle>();
+        this.sides = new List<PTHalfSide>();
+        this.boundaries = new List<PTBoundary>();
+        this.boundaryCaps = new List<PTBoundaryGapCap>();
+
+        Dictionary<int, PTHalfSide[]> sidePairs = new Dictionary<int, PTHalfSide[]>();
+        Dictionary<int, List<PTHalfSide>> cornerGroups = new Dictionary<int, List<PTHalfSide>>();
+
+        for (int i = 0; i < this.icosahedron.Triangles.Count; i++) {
+            // Create the points.
+            for (int j = 0; j < 3; j++) {
+                this.points.Add(new PTPoint(this, this.icosahedron.Points[this.icosahedron.Triangles[i].Indices[j]]));
+                this.points[(i * 3) + j].RenderIndex = this.icosahedron.Triangles[i].Indices[j];
+            }
+
+            // Create the sides and assign them to their triangles.
+            for (int j = 0; j < 3; j++) {
+                // Create the side.
+                this.sides.Add(new PTHalfSide(this, this.points[(i * 3) + j], this.points[((i * 3) + (j + 1) % 3)]));
+
+                // Get the index that this side will use to identify its pairing.
+                int greater = Mathf.Max(this.icosahedron.Triangles[i].Indices[j], this.icosahedron.Triangles[i].Indices[(j + 1) % 3]);
+                int lesser = Mathf.Min(this.icosahedron.Triangles[i].Indices[j], this.icosahedron.Triangles[i].Indices[(j + 1) % 3]);
+                int sideIndex = (greater << 16) + lesser;
+
+                // Add it to the sidePairs dictionary, creating a new list if needed.
+                if (sidePairs.ContainsKey(sideIndex)) {
+                    sidePairs[sideIndex][1] = this.sides[this.sides.Count - 1];
+                }
+                else {
+                    sidePairs[sideIndex] = new PTHalfSide[2];
+                    sidePairs[sideIndex][0] = this.sides[this.sides.Count - 1];
+                }
+
+                // Add it to the cornerGroups dictionary, creating a new list if needed.
+                //  First add at the greater index.
+                if (cornerGroups.ContainsKey(greater)) {
+                    cornerGroups[greater].Add(this.sides[this.sides.Count - 1]);
+                }
+                else {
+                    cornerGroups[greater] = new List<PTHalfSide>();
+                    cornerGroups[greater].Add(this.sides[this.sides.Count - 1]);
+                }
+                // Add at the lesser index.
+                if (cornerGroups.ContainsKey(lesser)) {
+                    cornerGroups[lesser].Add(this.sides[this.sides.Count - 1]);
+                }
+                else {
+                    cornerGroups[lesser] = new List<PTHalfSide>();
+                    cornerGroups[lesser].Add(this.sides[this.sides.Count - 1]);
+                }
+            }
+
+            // Add the new sides to the triangle.
+            this.triangles.Add(new PTTriangle(this, this.sides.GetRange(i * 3, 3).ToArray()));
+        }
+
+        Debug.Log("Points: " + this.points.Count + " | Tris: " + this.triangles.Count);
+
+        // Go through each side pairing and create its boundary.
+        foreach (KeyValuePair<int, PTHalfSide[]> sidePair in sidePairs) {
+            this.boundaries.Add(new PTBoundary(this, sidePair.Value[0], sidePair.Value[1]));
+        }
+
+        // Go through each cornerGroup and create a boundary cap.
+        foreach (KeyValuePair<int, List<PTHalfSide>> cornerGroup in cornerGroups) {
+            List<PTHalfSide> sorted = new List<PTHalfSide>();
+            bool end = true;
+
+            // Loop through to sort the list of PTHalfSides.
+            PTHalfSide checkSide = null;
+
+            // Get a starting checkSide that has the index as its end point.
+            for (int i = 0; i < cornerGroup.Value.Count; i++) {
+                if (cornerGroup.Value[i].End.RenderIndex == cornerGroup.Key) {
+                    checkSide = cornerGroup.Value[i];
+                    break;
+                }
+            }
+
+            for (int i = 0; i < cornerGroup.Value.Count; i++) {
+                // Add this side to the list.
+                sorted.Add(checkSide);
+
+                // If we're at the end of the HalfSide, we need to get the next HalfSide on the shared triangle.
+                if (end) {
+                    PTHalfSide nextSide = checkSide.ParentTriangle.GetNextHalfSide(checkSide);
+
+                    if (nextSide != null) {
+                        checkSide = nextSide;
+                        end = false;
+                    }
+                }
+                else {
+                    // If we're at the start of the HalfSide, we need to get the side across the boundary.
+                    //  The next side should always have this index as its end if this side had it as the start.
+                    if (checkSide.ParentBoundary.FirstSide == checkSide) {
+                        checkSide = checkSide.ParentBoundary.SecondSide;
+                    }
+                    else {
+                        checkSide = checkSide.ParentBoundary.FirstSide;
+                    }
+
+                    end = true;
+                }
+            }
+
+            this.boundaryCaps.Add(new PTBoundaryGapCap(this, sorted));
+        }
+
+        for (int i = 0; i < this.triangles.Count; i++) {
+            this.triangles[i].ContractPointsTest(0.35f);
+        }
+
+
+        //Vector3[] pos = new Vector3[] {
+        //    new Vector3(0.2f, 0, -1),
+        //    new Vector3(0.4f, 0, 1),
+        //    new Vector3(1, 0, 0),
+        //    new Vector3(-0.2f, 0, 1),
+        //    new Vector3(-0.2f, 0, -1),
+        //    new Vector3(-1, 0, 0)
+        //};
+        //
+        //this.points = new PTPoint[6];
+        //for (int i = 0; i < 6; i++) {
+        //    this.points[i] = new PTPoint(pos[i]);
+        //}
+        //
+        //this.sides1 = new PTHalfSide[3];
+        //this.sides2 = new PTHalfSide[3];
+        //
+        //for (int i = 0; i < 3; i++) {
+        //    this.sides1[i] = new PTHalfSide(this.points[i], this.points[(i + 1) % 3]);
+        //    this.sides2[i] = new PTHalfSide(this.points[3 + i], this.points[3 + (i + 1) % 3]);
+        //}
+        //
+        //this.tri1 = new PTTriangle(this.sides1);
+        //this.tri2 = new PTTriangle(this.sides2);
+        //
+        //this.boundary = new PTTriangleBoundary(this.sides1[0], this.sides2[0]);
+
+        this.TestRender();
+    }
+
+    private void TestRender() {
+
+        //this.icosahedron.RenderSphere(this.mesh);
+
+        List<Vector3> verts = new List<Vector3>();
+        List<int> indices = new List<int>();
+
+        /*
+        for (int j = 0; j < 3; j++) {
+            verts.Add(this.tri1.Points[j].Location);
+            indices.Add(j);
+            this.tri1.Points[j].RenderIndex = j;
+        }
+        for (int j = 0; j < 3; j++) {
+            verts.Add(this.tri2.Points[j].Location);
+            indices.Add(3 + j);
+            this.tri2.Points[j].RenderIndex = j + 3;
+        }
+
+
+        indices.AddRange(this.boundary.GetBoundaryIndices());
+
+        */
+
+        for (int i = 0; i < this.points.Count; i++) {
+            verts.Add(this.points[i].Location);
+            this.points[i].RenderIndex = i;
+        }
+
+        for (int i = 0; i < this.triangles.Count; i++) {
+            for (int j = 0; j < 3; j++) {
+                indices.Add(this.triangles[i].Points[j].RenderIndex);
+            }
+        }
+
+        for (int i = 0; i < this.boundaries.Count; i++) {
+            indices.AddRange(this.boundaries[i].GetBoundaryIndices());
+        }
+
+        for (int i = 0; i < this.boundaryCaps.Count; i++) {
+            indices.AddRange(this.boundaryCaps[i].GetBoundaryCapIndices());
+        }
+
+        this.mesh.SetVertices(verts);
+        this.mesh.SetIndices(indices, MeshTopology.Triangles, 0);
+        this.mesh.RecalculateBounds();
+        this.mesh.RecalculateNormals();
+    }
+
+    private void Test() {
+
+        /*this.boundary.CalculateReturnPosition(0.016f);
+        this.boundary.CalculateReturnForce();
+
+        for (int i = 0; i < 6; i++) {
+            this.points[i].CalculateMovement(0.016f);
+        }
+
+        this.TestRender();*/
+    }
+
+    private void Update () {
+        this.Test();
     }
 }
 

@@ -24,6 +24,8 @@ public class TectonicTriangle {
 
     public float TriangleArea { get; private set; }
 
+    public Vector3 TriangleCenter { get; private set; }
+
     public bool InternalTriangle { get; private set; }
 
 
@@ -34,6 +36,12 @@ public class TectonicTriangle {
     public float RotationalForce;
 
     public float RotationVelocity;
+
+
+    public Vector3 velocityPlaneNormal;
+
+    public float velocity;
+
 
     public TectonicTriangle (Planet _parent, int _a, int _b, int _c) :
         this(_parent, _parent.TectonicPoints[_a], _parent.TectonicPoints[_b], _parent.TectonicPoints[_c]) { }
@@ -50,6 +58,8 @@ public class TectonicTriangle {
         this.CreateHalfSides();
 
         this.InternalTriangle = false;
+
+        this.CalculateTriangleInformation();
     }
 
     private void CreateHalfSides ()
@@ -77,9 +87,18 @@ public class TectonicTriangle {
         this.parentPlate = _parent;
     }
 
-    public void SetInitialVelocity (Vector2 _velocity, float _rotational) {
-        this.LateralVelocity = _velocity;
-        this.RotationVelocity = _rotational;
+    //public void SetInitialVelocity (Vector2 _velocity, float _rotational) {
+    //    this.LateralVelocity = _velocity;
+    //    this.RotationVelocity = _rotational;
+    //}
+
+    public void SetInitialVelocity (Vector2 _orientation, float _amount) {
+        // Get the next point that the triangle's center would move to if it moved in the set orientation.
+        Vector3 nextPoint = PTFunctions.MovePointAroundSphere(this.TriangleCenter, _orientation, 0.1f);
+
+        // Calculate the plane that we're moving on.
+        this.velocityPlaneNormal = Vector3.Cross(this.TriangleCenter, nextPoint).normalized;
+        this.velocity = _amount;
     }
 
     public TectonicTriangle[] GetNeighborTriangles () {
@@ -170,14 +189,17 @@ public class TectonicTriangle {
         this.AverageDensity = 0f;
         this.AverageThickness = 0f;
         this.AverageAge = 0f;
+        this.TriangleCenter = Vector3.zero;
         for (int i = 0; i < 3; i++) {
             this.AverageDensity += this.Points[i].density;
             this.AverageThickness += this.Points[i].thickness;
             this.AverageAge += this.Points[i].materialAverageAge;
+            this.TriangleCenter += this.Points[i].SpherePosition;
         }
         this.AverageDensity /= 3f;
         this.AverageThickness /= 3f;
         this.AverageAge /= 3f;
+        this.TriangleCenter /= 3f;
     }
 
     public void CalculateTriangleForces () {
@@ -222,18 +244,18 @@ public class TectonicTriangle {
     }
 
     public void TestRender (float _distance) {
-        // Get the center.
-        Vector3 centerPoint = Vector3.zero;
-        for (int i = 0; i < 3; i++) {
-            centerPoint += this.Points[i].SpherePosition;
-        }
-        centerPoint.Normalize();
 
         // Get the point a distance from the center in the direction of movement.
-        Vector3 directionPoint = TectonicFunctions.MovePointAroundSphere(centerPoint, this.LateralVelocity.normalized, _distance);
-
+        Vector3 directionPoint = PTFunctions.RotateVector(this.TriangleCenter, this.velocityPlaneNormal, _distance);//Vector3.Cross(this.TriangleCenter, this.velocityPlaneNormal), _distance);
+        
         Gizmos.color = Color.cyan;
-        Gizmos.DrawLine(centerPoint, directionPoint);
+        Gizmos.DrawLine(this.TriangleCenter, directionPoint);
+
+        Gizmos.color = Color.blue;
+        Gizmos.DrawLine(Vector3.zero, this.TriangleCenter);
+
+        Gizmos.color = Color.red;
+        Gizmos.DrawLine(Vector3.zero, this.velocityPlaneNormal);
     }
 }
 

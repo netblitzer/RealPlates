@@ -21,6 +21,8 @@ public class HalfSidePair
 
     public float Longitude { get; private set; }
 
+    public Vector3 PlaneNormal { get; private set; }
+
     public HalfSideStatusType HalfSideStatus;
 
     public float ConnectionAge;
@@ -76,13 +78,13 @@ public class HalfSidePair
         side2.SetLength(arc, cord);
 
         // Calculate the plane that the halfsidepair passes through.
-        Vector3 planeNormal = Vector3.Cross(side1.Start.SpherePosition, side1.End.SpherePosition).normalized;
+        this.PlaneNormal = Vector3.Cross(side1.Start.SpherePosition, side1.End.SpherePosition).normalized;
 
         // Get the inclination of the plane.
-        this.Inclination = Mathf.Acos(Vector3.Dot(planeNormal, Vector3.up));
+        this.Inclination = Mathf.Acos(Vector3.Dot(this.PlaneNormal, Vector3.up));
 
         // Calculate the intersection normal.
-        Vector3 intersection = Vector3.Cross(planeNormal, Vector3.up).normalized;
+        Vector3 intersection = Vector3.Cross(this.PlaneNormal, Vector3.up).normalized;
         this.Longitude = Mathf.Acos(Vector3.Dot(intersection, Vector3.forward));
     }
 
@@ -337,6 +339,6 @@ public class HalfSidePair
                 break;
         }
 
-        //Gizmos.DrawLine(side1.Start.SpherePosition, side1.End.SpherePosition);
+        Gizmos.DrawLine(side1.Start.SpherePosition, side1.End.SpherePosition);
     }
 }

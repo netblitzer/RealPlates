@@ -1,7 +1,7 @@
 ﻿using UnityEngine;
 using System.Collections;
 
-public static class TectonicFunctions 
+public static class PTFunctions 
 {
 
     public static Vector3 MapProjectedPointOntoSphere (Vector2 _projected) {
@@ -80,5 +80,16 @@ public static class TectonicFunctions
     public static float SpheretoSphereIntersectionPlane (float _originRadius, float _minorRadius, float _distanceFromOrigin) {
         float distance = (Mathf.Pow(_distanceFromOrigin, 2) + Mathf.Pow(_originRadius, 2) - Mathf.Pow(_minorRadius, 2)) / (2f * _distanceFromOrigin);
         return distance;
+    }
+    public static Vector3 RotateVector (Vector3 _original, Vector3 _axis, float _angle) {
+        // Find the cross and dot products from the original vector and the rotation axis.
+        Vector3 cross = Vector3.Cross(_axis, _original);
+        float dot = Vector3.Dot(_axis, _original);
+
+        // Rotate based on Rodrigues' Rotation Formula.
+        Vector3 rotatedVector = (_original * Mathf.Cos(_angle))
+            + (cross * Mathf.Sin(_angle))
+            + (_axis * dot * (1 - Mathf.Cos(_angle)));
+        return rotatedVector;
     }
 }

@@ -55,7 +55,7 @@ public class TectonicPoint {
     public void SetSpherePosition (Vector3 _pos) {
         this.SpherePosition = _pos;
 
-        this.ProjectedPosition = TectonicFunctions.MapSpherePointOntoProjected(_pos);
+        this.ProjectedPosition = PTFunctions.MapSpherePointOntoProjected(_pos);
 
         if (float.IsNaN(this.Latitude) || float.IsNaN(this.Longitude)) {
             Debug.LogError("Something went wrong!");
@@ -66,7 +66,7 @@ public class TectonicPoint {
         this.ProjectedPosition.x = _projected.x % Mathf.PI;
         this.ProjectedPosition.y = _projected.y % (Mathf.PI / 2f);
 
-        this.SpherePosition = TectonicFunctions.MapProjectedPointOntoSphere(_projected);
+        this.SpherePosition = PTFunctions.MapProjectedPointOntoSphere(_projected);
     }
 
     public void SetDensity (float _density)
@@ -90,7 +90,7 @@ public class TectonicPoint {
         diff = ((_otherSpherePoint + this.SpherePosition) / 2f) + (diff * _distanceAlongPath);
 
         // Calculate the new projected point.
-        Vector2 projectedPoint = TectonicFunctions.MapSpherePointOntoProjected(diff);
+        Vector2 projectedPoint = PTFunctions.MapSpherePointOntoProjected(diff);
 
         // Get the direction around the sphere.
         Vector2 direction = (projectedPoint - this.ProjectedPosition);

@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1acd3f2541d1ec14d9b18b3317918494, type: 3}
   m_Name: defaultPlanetSettings
   m_EditorClassIdentifier: 
-  SubDivisions: 3
+  SubDivisions: 10
   Jitter: 0
   PlanetRadius: 10
   GenerateRandomAxis: 1
@@ -38,7 +38,7 @@ MonoBehaviour:
     SubductionDensityDifferenceRequirement: 0.25
     SubductionThicknessDifferenceRequirement: 0.5
     SubductionMaterialDifferenceRequirement: 0.25
-    SubductionElevationifferenceRequirement: 0.25
+    SubductionElevationDifferenceRequirement: 0.25
     SubductionMaterialDensityBias: 0.5
     SubductionThicknessLimit: 10
   generationSettings:
