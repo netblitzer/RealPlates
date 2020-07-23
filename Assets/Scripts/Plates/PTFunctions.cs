@@ -58,7 +58,6 @@ public static class PTFunctions
         if (Mathf.Sign(Vector3.Dot(_spherePoint, Vector3.right)) != Mathf.Sign(Vector3.Dot(finalPosition, Vector3.right)) &&
             Mathf.Sign(Vector3.Dot(_spherePoint, Vector3.forward)) != Mathf.Sign(Vector3.Dot(finalPosition, Vector3.forward))) {
             Debug.Log("Point went over a pole.");
-            _directionAdjust *= -1;
         }
         // Add the final component to the position.
         finalPosition += upDisplacement;
@@ -81,6 +80,7 @@ public static class PTFunctions
         float distance = (Mathf.Pow(_distanceFromOrigin, 2) + Mathf.Pow(_originRadius, 2) - Mathf.Pow(_minorRadius, 2)) / (2f * _distanceFromOrigin);
         return distance;
     }
+
     public static Vector3 RotateVector (Vector3 _original, Vector3 _axis, float _angle) {
         // Find the cross and dot products from the original vector and the rotation axis.
         Vector3 cross = Vector3.Cross(_axis, _original);
@@ -91,5 +91,16 @@ public static class PTFunctions
             + (cross * Mathf.Sin(_angle))
             + (_axis * dot * (1 - Mathf.Cos(_angle)));
         return rotatedVector;
+    }
+
+    public static Vector3 RotateVectorQuaternion (Vector3 _point, Vector3 _axis, float _angle) {
+        // Get the quaternion used for rotation.
+        Quaternion quaternionAxis = Quaternion.AngleAxis(_angle / Mathf.PI * 180, _axis);
+
+        // Create a 4x4 rotation matrix from the quaternion.
+        Matrix4x4 rotationMatrix = Matrix4x4.Rotate(quaternionAxis);
+
+        // Multiply the point by the matrix.
+        return rotationMatrix.MultiplyPoint(_point);
     }
 }
