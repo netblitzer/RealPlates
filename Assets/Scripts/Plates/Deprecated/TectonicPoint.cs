@@ -205,7 +205,7 @@ public class TectonicPoint {
     public void CaculatePointNeighbors ( ) {
         List<int> neighbors = new List<int>();
         int firstPlate = -1;
-        bool sharedPoint = false;
+        bool sharedPoint;
 
         foreach (TectonicTriangle parent in this.parentTriangles) {
             for (int i = 0; i < 3; i++) {

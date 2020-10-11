@@ -281,7 +281,7 @@ public class TectonicTriangle {
             // Calculate the decrease in circle size based on the distance from the plane the point is.
             circleRadiusSize = Mathf.Cos(Vector3.Dot(this.Points[i].SpherePosition, this.nextVelocityPlaneNormal) * Mathf.PI / 2f);
 
-            nextPosition = TectonicFunctions.RotateVectorQuaternion(this.Points[i].SpherePosition, this.nextVelocityPlaneNormal, this.nextVelocity * circleRadiusSize);
+            nextPosition = PTFunctions.RotateVectorQuaternion(this.Points[i].SpherePosition, this.nextVelocityPlaneNormal, this.nextVelocity * circleRadiusSize);
 
             this.Points[i].AddParentTriangleVelocity(nextPosition);
         }
@@ -297,14 +297,14 @@ public class TectonicTriangle {
 
     public void TestRender (float _distance, Color _forwardColor, bool _showNext = false) {
         // Get the point a distance from the center in the direction of movement.
-        //Vector3 directionPoint = TectonicFunctions.MovePointAroundSphere(this.TriangleCenter, this.LateralVelocity.normalized, _distance);
+        //Vector3 directionPoint = PTFunctions.MovePointAroundSphere(this.TriangleCenter, this.LateralVelocity.normalized, _distance);
 
         Gizmos.color = Color.red;
         //Gizmos.DrawLine(this.TriangleCenter, directionPoint);
         //Gizmos.DrawLine(Vector3.zero, this.TriangleCenter);
 
         Gizmos.color = _forwardColor;
-        Vector3 nextPoint = TectonicFunctions.RotateVectorQuaternion(this.TriangleCenter, this.currentVelocityPlaneNormal, this.currentVelocity);
+        Vector3 nextPoint = PTFunctions.RotateVectorQuaternion(this.TriangleCenter, this.currentVelocityPlaneNormal, this.currentVelocity);
         Gizmos.DrawLine(this.TriangleCenter, nextPoint);
         //Gizmos.DrawLine(Vector3.zero, this.localXZPlaneForward);
         //Gizmos.DrawLine(Vector3.zero, Vector3.Cross(this.TriangleCenter, this.localXZPlaneForward).normalized);
@@ -313,7 +313,7 @@ public class TectonicTriangle {
         if (_showNext) {
             //Gizmos.DrawLine(Vector3.zero, this.currentVelocityPlaneNormal);
 
-            nextPoint = TectonicFunctions.RotateVectorQuaternion(this.TriangleCenter, this.nextVelocityPlaneNormal, this.nextVelocity);
+            nextPoint = PTFunctions.RotateVectorQuaternion(this.TriangleCenter, this.nextVelocityPlaneNormal, this.nextVelocity);
             Gizmos.color = Color.red;
             Gizmos.DrawLine(this.TriangleCenter, nextPoint);
 

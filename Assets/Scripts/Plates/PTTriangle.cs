@@ -42,18 +42,19 @@ public class PTTriangle {
     }
 
 
-
-    public void ContractPointsTest (float _percent) {
-        Vector3 center = Vector3.zero;
-
+    private Vector3 center;
+    public void GetCenter () {
         for (int i = 0; i < 3; i++) {
-            center += this.Points[i].Location;
+            this.center += this.Points[i].Location;
         }
 
-        center /= 3f;
+        this.center /= 3f;
+        this.center.Normalize();
+    }
 
+    public void ContractPointsTest (float _percent) {
         for (int i = 0; i < 3; i++) {
-            this.Points[i].SetSphereLocation((this.Points[i].Location * (1 - _percent)) + (center * _percent));
+            this.Points[i].SetSphereLocation((this.Points[i].Location * (1 - _percent)) + (this.center * _percent));
         }
     }
 }

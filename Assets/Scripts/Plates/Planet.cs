@@ -592,156 +592,6 @@ public class Planet : MonoBehaviour {
     }
 
     public void GeneratePlanet () {
-        this.TestSetup();
-        return;
-
-        // Initialize the planet and components.
-        this.Initialize();
-        this.InitializeGameObject();
-
-        // Create the initial points for the planet.
-        this.AddIntialPoints();
-        this.Subdivide(this.planetSettings.SubDivisions);
-
-        // Get the number of points currently.
-        this.CurrentPointCount = this.tempPositions.Count;
-
-        // Get the number of points the array should be.
-        this.MaxPointCount = (this.tempPositions.Count * 2);
-        this.MaxPointCount -= this.MaxPointCount % 16;
-        // Create the array for all the TectonicPoints.
-        this.TectonicPoints = new TectonicPoint[this.MaxPointCount];
-        this.UnusedPointIndices = new List<int>(this.MaxPointCount);
-
-        // Create all the TectonicPoints from the tempPositions.
-        for (int i = 0; i < this.tempPositions.Count; i++) {
-            this.TectonicPoints[i] = new TectonicPoint(this, this.tempPositions[i], i);
-        }
-        // Add all the unused indices to the list.
-        for (int i = 0; i < (this.MaxPointCount - this.tempPositions.Count); i++) {
-            this.UnusedPointIndices.Add(this.tempPositions.Count + i);
-        }
-
-        // Create all the TectonicTriangles from the tempTriangles.
-        foreach (Triangle tri in this.tempTriangles) {
-            this.tectonicTriangles.Add(new TectonicTriangle(this, tri.Indices[0], tri.Indices[1], tri.Indices[2]));
-        }
-
-        // Go through all the triangles and calculate their neighbors.
-        foreach (TectonicTriangle triangle in this.tectonicTriangles) {
-            triangle.CalculateNeighbors();
-        }
-
-        // Go through all the HalfSidePairs and calculate their lengths and directions.
-        foreach (KeyValuePair<int, HalfSidePair> pair in this.triangleSidePairs) {
-            pair.Value.CalculateHalfSideProperties();
-        }
-
-        // Create the mesh indices based on the number of triangles there currently are.
-        this.MeshIndices = new List<int>(this.tectonicTriangles.Count * 3);
-
-        // Calculate the average triangle area and triangle side length at this detail level before jittering the points.
-        int triangleSamples = 20;
-        for (int i = 0; i < triangleSamples; i++) {
-            this.averageTriangleArea += this.tectonicTriangles[i].CalculateTriangleArea();
-            for (int j = 0; j < 3; j++) {
-                this.averageSideLength += this.triangleSides[this.tectonicTriangles[i].SideIndices[j]].ArcLength;
-            }
-        }
-        this.averageTriangleArea /= (float) triangleSamples;
-        this.averageSideLength /= (float) (triangleSamples * 3f);
-
-        this.JitterPlanet();
-
-        // Seed the initial plates for planet generation.
-        //this.SeedPlates();
-        
-        // If we're not growing seed plates over time, generate the plates now.
-        if (!this.GrowOverTime) {
-            //this.GrowStartingPlates(this.GrowOverTime, this.planetSettings.generationSettings.StepsPerFrame);
-            this.GeneratePlates();
-
-            this.UpdatePlateMeshes();
-
-            Debug.Log("Final Plate Count: " + this.CurrentPlateCount);
-        }
-    }
-
-    #endregion
-
-
-    #region Plate Simulation Functions
-
-
-
-    #endregion
-
-    /// ---- Unity Functions ---- ///
-    
-    void Start ( ) {
-        this.GeneratePlanet();
-    }
-    /*
-    void Update ( ) {
-        switch (this.currentPhase) {
-            case GenerationPhase.Setup:
-
-                break;
-            case GenerationPhase.InitialPlateGeneration:
-                if (Input.GetKey(KeyCode.Space)) {
-                    //this.GrowStartingPlates(this.GrowOverTime, this.planetSettings.generationSettings.StepsPerFrame);
-                }
-
-                this.UpdatePlateMeshes();
-                break;
-            case GenerationPhase.PlateSimulation:
-                for (int i = 0; i < this.CurrentPointCount; i++) {
-                    this.TectonicPoints[i].CaculatePointNeighbors();
-                }
-
-                Profiler.BeginSample("Updating HalfSidePairs");
-                foreach (KeyValuePair<int, HalfSidePair> pairs in this.triangleSidePairs) {
-                    pairs.Value.CalculateHalfSideProperties();
-                    pairs.Value.CalculateHalfSideStatus(this.planetSettings.generationSettings.AgeStepPerSecond * Time.deltaTime);
-                }
-                Profiler.EndSample();
-
-                for (int i = 0; i < this.tectonicTriangles.Count; i++) {
-                    //this.tectonicTriangles[i].CalculateTriangleForces();
-                    this.tectonicTriangles[i].CalculateTriangleVelocity();
-                }
-
-                for (int i = 0; i < this.CurrentPointCount; i++) {
-                    //this.TectonicPoints[i].CalculatePointMovement(this.planetSettings.generationSettings.AgeStepPerSecond * Time.deltaTime, 
-                    //    this.planetSettings.generationSettings.AgeStepPerSecond * Time.deltaTime);
-                }
-
-                this.UpdatePlateMeshes();
-                break;
-        }
-    }
-
-    private void OnDrawGizmos ( ) {
-
-        if (this.currentPhase == GenerationPhase.PlateSimulation) {
-            foreach (KeyValuePair<int, HalfSidePair> pairs in this.triangleSidePairs) {
-                //pairs.Value.TestRender();
-            }
-            for (int i = 0; i < 1; i++) {
-                this.tectonicTriangles[i].TestRender(0.025f);
-            }
-        }
-    }
-    */
-
-    List<PTPoint> points;
-    List<PTTriangle> triangles;
-    List<PTHalfSide> sides;
-    List<PTBoundary> boundaries;
-    List<PTBoundaryGapCap> boundaryCaps;
-    Icosahedron icosahedron;
-
-    private void TestSetup() {
 
         this.Initialize();
         this.InitializeGameObject();
@@ -866,66 +716,40 @@ public class Planet : MonoBehaviour {
         }
 
         for (int i = 0; i < this.triangles.Count; i++) {
-            this.triangles[i].ContractPointsTest(0.35f);
+            this.triangles[i].GetCenter();
         }
 
+        for (int i = 0; i < this.triangles.Count; i++) {
+            this.triangles[i].ContractPointsTest(Random.Range(0, 0.5f));
+        }
 
-        //Vector3[] pos = new Vector3[] {
-        //    new Vector3(0.2f, 0, -1),
-        //    new Vector3(0.4f, 0, 1),
-        //    new Vector3(1, 0, 0),
-        //    new Vector3(-0.2f, 0, 1),
-        //    new Vector3(-0.2f, 0, -1),
-        //    new Vector3(-1, 0, 0)
-        //};
-        //
-        //this.points = new PTPoint[6];
-        //for (int i = 0; i < 6; i++) {
-        //    this.points[i] = new PTPoint(pos[i]);
-        //}
-        //
-        //this.sides1 = new PTHalfSide[3];
-        //this.sides2 = new PTHalfSide[3];
-        //
-        //for (int i = 0; i < 3; i++) {
-        //    this.sides1[i] = new PTHalfSide(this.points[i], this.points[(i + 1) % 3]);
-        //    this.sides2[i] = new PTHalfSide(this.points[3 + i], this.points[3 + (i + 1) % 3]);
-        //}
-        //
-        //this.tri1 = new PTTriangle(this.sides1);
-        //this.tri2 = new PTTriangle(this.sides2);
-        //
-        //this.boundary = new PTTriangleBoundary(this.sides1[0], this.sides2[0]);
+        for (int i = 0; i < this.boundaries.Count; i++) {
+            this.boundaries[i].CalculateBoundaryInformation();
+            this.boundaries[i].SetCornerDesired();
+        }
 
         this.TestRender();
     }
 
-    private void TestRender() {
+    List<PTPoint> points;
+    List<PTTriangle> triangles;
+    List<PTHalfSide> sides;
+    List<PTBoundary> boundaries;
+    List<PTBoundaryGapCap> boundaryCaps;
+    Icosahedron icosahedron;
 
-        //this.icosahedron.RenderSphere(this.mesh);
+    public int selectedPoint;
 
+    private void TestRender () {
         List<Vector3> verts = new List<Vector3>();
         List<int> indices = new List<int>();
 
-        /*
-        for (int j = 0; j < 3; j++) {
-            verts.Add(this.tri1.Points[j].Location);
-            indices.Add(j);
-            this.tri1.Points[j].RenderIndex = j;
-        }
-        for (int j = 0; j < 3; j++) {
-            verts.Add(this.tri2.Points[j].Location);
-            indices.Add(3 + j);
-            this.tri2.Points[j].RenderIndex = j + 3;
-        }
-
-
-        indices.AddRange(this.boundary.GetBoundaryIndices());
-
-        */
-
+        Matrix4x4 rotMat = this.points[Mathf.Abs(this.selectedPoint) % this.points.Count].RotationMatrix.inverse;
+        Vector3 rotated;
         for (int i = 0; i < this.points.Count; i++) {
-            verts.Add(this.points[i].Location);
+            rotated = rotMat.MultiplyPoint3x4(this.points[i].SphereLocation);
+            verts.Add(rotated);
+            //verts.Add(this.points[i].SphereLocation);
             this.points[i].RenderIndex = i;
         }
 
@@ -949,20 +773,35 @@ public class Planet : MonoBehaviour {
         this.mesh.RecalculateNormals();
     }
 
-    private void Test() {
+    #endregion
 
-        /*this.boundary.CalculateReturnPosition(0.016f);
-        this.boundary.CalculateReturnForce();
 
-        for (int i = 0; i < 6; i++) {
-            this.points[i].CalculateMovement(0.016f);
-        }
+    #region Plate Simulation Functions
 
-        this.TestRender();*/
+
+
+    #endregion
+
+    /// ---- Unity Functions ---- ///
+
+    void Start ( ) {
+        this.GeneratePlanet();
     }
 
-    private void Update () {
-        this.Test();
+    void Update () {
+
+        for (int i = 0; i < this.boundaries.Count; i++) {
+            this.boundaries[i].CalculateBoundaryInformation();
+            this.boundaries[i].CalculateBoundaryForces(Time.deltaTime);
+        }
+
+        for (int i = 0; i < this.points.Count; i++) {
+            this.points[i].CalculateMovement(Time.deltaTime);
+        }
+
+//        Debug.Log(this.boundaries[this.selectedPoint].FirstCorner.CornerAngle * 180f / Mathf.PI);
+
+        this.TestRender();
     }
 }
 
