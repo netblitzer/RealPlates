@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1acd3f2541d1ec14d9b18b3317918494, type: 3}
   m_Name: defaultPlanetSettings
   m_EditorClassIdentifier: 
-  SubDivisions: 10
+  SubDivisions: 4
   Jitter: 0
   PlanetRadius: 10
   GenerateRandomAxis: 1

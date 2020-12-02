@@ -63,9 +63,14 @@ public class PTBoundary {
         this.SecondSide.CalculateEdgeForce(_timestep);
     }
 
-    public void SetCornerDesired () {
-        this.FirstCorner.SetDesired();
-        this.SecondCorner.SetDesired();
+    public void SetCornerDesired (float _desired = -1f) {
+        this.FirstCorner.SetDesired(_desired);
+        this.SecondCorner.SetDesired(_desired);
+    }
+
+    public void UpdateEdgeDesired() {
+        this.FirstSide.SetDesired(this.FirstSide.CurrentLength);
+        this.SecondSide.SetDesired(this.SecondSide.CurrentLength);
     }
 /*
     public void CalculateReturnForce () {

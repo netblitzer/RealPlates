@@ -17,9 +17,11 @@ public class PTHalfSide {
     public float DesiredLength => this.desired;
 
     private float length;
-    private float previousLength;
+    private float previousLength = 0f;
     private float desired;
-    private float stiffness = 1f;
+    private float stiffness = 10f;
+
+    public Vector3 Cross;
 
     public PTHalfSide (Planet _parentP, PTPoint _start, PTPoint _end) {
         this.parentPlanet = _parentP;
@@ -30,15 +32,28 @@ public class PTHalfSide {
         this.desired = this.length;
     }
 
-    public void CalculateLength() {
+    public void SetDesired(float _desired) {
+        this.desired = _desired;
+    }
+
+    public void CalculateLength(float _lengthChangeMax = 0.001f) {
         // Set the previous length of the side.
         this.previousLength = this.length;
 
         // Calculate the current length of the side.
-        this.length = Mathf.Asin(Vector3.Dot(this.Start.SphereLocation, this.End.SphereLocation));
+        this.length = Mathf.Acos(Vector3.Dot(this.Start.SphereLocation, this.End.SphereLocation));
+
+        if (Mathf.Abs(this.length) < 0.0001f || float.IsNaN(this.length)) {
+            this.length = 0f;
+        }
 
         // Calculate the stiffness of the side.
-        this.stiffness = Mathf.Min(1000, Mathf.Max(1, this.stiffness + ((1 - (Mathf.Abs(this.length - this.previousLength) * 50000f)) * 0.1f)));
+        //  If the gap stays relatively the same, stiffness will increase. If the gap is rapidly changing, stiffness will drop.
+        float lengthChange = Mathf.Abs(this.length - this.previousLength);
+        float stiffnessChange = Mathf.Min(_lengthChangeMax, Mathf.Max(-_lengthChangeMax, _lengthChangeMax - lengthChange)) * 20f;
+        this.stiffness = Mathf.Min(100f, Mathf.Max(5f, this.stiffness + stiffnessChange));
+
+        this.Cross = Vector3.Cross(this.Start.SphereLocation, this.End.SphereLocation).normalized;
     }
 
     public void SetParentTriangle (PTTriangle _parentT) {
@@ -51,9 +66,10 @@ public class PTHalfSide {
 
     public void CalculateEdgeForce (float _timestep) {
         float forceDiff = (this.desired - this.length) / 2f;
-        Vector3 torqueVector = Vector3.Cross(this.Start.SphereLocation, this.End.SphereLocation).normalized * forceDiff * this.stiffness * _timestep;
+        Vector3 torqueVector = this.Cross * forceDiff * this.stiffness * _timestep;
 
-        this.Start.AddTorque(torqueVector);
-        this.End.AddTorque(-torqueVector);
+        this.Start.AddTorque(-torqueVector, 2f);
+        this.End.AddTorque(torqueVector, 2f);
+
     }
 }

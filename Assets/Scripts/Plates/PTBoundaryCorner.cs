@@ -18,10 +18,10 @@ public class PTBoundaryCorner {
     private Vector3 prevCornerCross;
 
     private float gap;
-    private float previousGap;
+    private float previousGap = 0f;
     private float desired;
     private float gapDiff;
-    public float stiffness = 1f;
+    public float stiffness = 10f;
 
     public int[] indices;
 
@@ -42,11 +42,16 @@ public class PTBoundaryCorner {
         this.indices[2] = this.TriangleSide.Start.RenderIndex;
     }
 
-    public void SetDesired () {
-        this.desired = this.gap;
+    public void SetDesired (float _desired) {
+        if (_desired < 0f) {
+            this.desired = this.gap;
+        }
+        else {
+            this.desired = _desired;
+        }
     }
 
-    public void CalculateCorner () {
+    public void CalculateCorner (float _gapChangeMax = 0.001f) {
         // Set the previous parameters.
         this.previousGap = this.gap;
         this.prevCornerCross = this.cornerCross;
@@ -72,15 +77,16 @@ public class PTBoundaryCorner {
         }
 
         // Calculate the stiffness of the boundary.
-        this.stiffness = Mathf.Min(1000, Mathf.Max(1, this.stiffness + ((1 - (Mathf.Abs(this.gap - this.previousGap) * 50000f)) * 0.1f)));
+        //  If the gap stays relatively the same, stiffness will increase. If the gap is rapidly changing, stiffness will drop.
+        float gapChange = Mathf.Abs(this.gap - this.previousGap);
+        this.stiffness = Mathf.Min(100f, Mathf.Max(5f, this.stiffness + (Mathf.Min(_gapChangeMax, Mathf.Max(-_gapChangeMax, _gapChangeMax - gapChange)) * 20f)));
     }
 
     public void CalculateCornerForce (float _timestep) {
         float forceDiff = (this.desired - this.gap) / 2f;
-        forceDiff = this.CornerOverlapped ? forceDiff * -1 : forceDiff;
         Vector3 torqueVector = Vector3.Cross(this.OppositePoint.SphereLocation, this.TriangleSide.Start.SphereLocation).normalized * forceDiff * this.stiffness * _timestep;
 
-        this.OppositePoint.AddTorque(-torqueVector);
-        this.TriangleSide.Start.AddTorque(torqueVector);
+        this.OppositePoint.AddTorque(-torqueVector, 2f);
+        this.TriangleSide.Start.AddTorque(torqueVector, 2f);
     }
 }

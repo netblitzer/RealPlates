@@ -715,17 +715,25 @@ public class Planet : MonoBehaviour {
             this.boundaryCaps.Add(new PTBoundaryGapCap(this, sorted));
         }
 
+        float lengths = 0;
         for (int i = 0; i < this.triangles.Count; i++) {
             this.triangles[i].GetCenter();
+
+            for (int j = 0; j < 3; j++) {
+                lengths += this.triangles[i].Sides[j].CurrentLength;
+            }
         }
+        this.averageSideLength = lengths / (this.triangles.Count * 3);
 
         for (int i = 0; i < this.triangles.Count; i++) {
+            //this.triangles[i].ContractPointsTest(0.15f);
             this.triangles[i].ContractPointsTest(Random.Range(0, 0.5f));
         }
 
         for (int i = 0; i < this.boundaries.Count; i++) {
             this.boundaries[i].CalculateBoundaryInformation();
-            this.boundaries[i].SetCornerDesired();
+            this.boundaries[i].SetCornerDesired(0f);
+            this.boundaries[i].UpdateEdgeDesired();
         }
 
         this.TestRender();
@@ -764,7 +772,7 @@ public class Planet : MonoBehaviour {
         }
 
         for (int i = 0; i < this.boundaryCaps.Count; i++) {
-            indices.AddRange(this.boundaryCaps[i].GetBoundaryCapIndices());
+            //indices.AddRange(this.boundaryCaps[i].GetBoundaryCapIndices());
         }
 
         this.mesh.SetVertices(verts);
@@ -790,16 +798,20 @@ public class Planet : MonoBehaviour {
 
     void Update () {
 
+        float timestep = 0.01f;
+
         for (int i = 0; i < this.boundaries.Count; i++) {
             this.boundaries[i].CalculateBoundaryInformation();
-            this.boundaries[i].CalculateBoundaryForces(Time.deltaTime);
+            this.boundaries[i].CalculateBoundaryForces(timestep);
         }
+
+        this.triangles[0].ExpandTriangleTest(1.5f, timestep);
 
         for (int i = 0; i < this.points.Count; i++) {
-            this.points[i].CalculateMovement(Time.deltaTime);
+            this.points[i].CalculateMovement(timestep);
         }
 
-//        Debug.Log(this.boundaries[this.selectedPoint].FirstCorner.CornerAngle * 180f / Mathf.PI);
+        Debug.Log(this.boundaries[1].FirstCorner.stiffness);
 
         this.TestRender();
     }

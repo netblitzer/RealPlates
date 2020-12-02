@@ -57,4 +57,14 @@ public class PTTriangle {
             this.Points[i].SetSphereLocation((this.Points[i].Location * (1 - _percent)) + (this.center * _percent));
         }
     }
+
+    public void ExpandTriangleTest (float expandScale, float _timestep) {
+        for (int i = 0; i < 3; i++) {
+            float force = (this.parent.averageSideLength * expandScale) - this.Sides[i].CurrentLength;
+            Vector3 forceVec = this.Sides[i].Cross * force * _timestep * 25f;
+
+            this.Sides[i].Start.AddTorque(-forceVec, 1f);
+            this.Sides[i].End.AddTorque(forceVec, 1f);
+        }
+    }
 }

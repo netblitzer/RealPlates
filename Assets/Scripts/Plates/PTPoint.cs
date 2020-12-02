@@ -33,6 +33,8 @@ public class PTPoint {
 
     public int RenderIndex;
 
+    public Vector3 MomentumTorque => this.momentumTorque;
+
 
     private Vector3 netTorque;
 
@@ -50,11 +52,11 @@ public class PTPoint {
         this.sphereLocation = _location;
     }
 
-    public void CalculateMovement (float _timestep) {
+    public void CalculateMovement (float _timestep, float _friction = -0.98f) {
         this.momentumTorque += (this.netTorque * _timestep);
         
         if (Mathf.Abs(this.momentumTorque.x) > 0.00001f || Mathf.Abs(this.momentumTorque.y) > 0.00001f || Mathf.Abs(this.momentumTorque.z) > 0.00001f) {
-            this.momentumTorque += (this.momentumTorque * -0.97f * _timestep);
+            this.momentumTorque += (this.momentumTorque * _friction * _timestep);
             this.sphereLocation = PTFunctions.RotateVectorQuaternion(this.sphereLocation, this.momentumTorque.normalized, this.momentumTorque.magnitude);
         }
         else {
@@ -71,7 +73,14 @@ public class PTPoint {
         this.rotationMatrix = Matrix4x4.Rotate(rotation);
     }
 
-    public void AddTorque (Vector3 _torque) {
-        this.netTorque += _torque;
+    public void AddTorque (Vector3 _torque, float damping = 0f) {
+        if (damping > 0f) {
+            this.netTorque.x += _torque.x - (this.momentumTorque.x * damping);//Mathf.Max(0f, Mathf.Abs(_torque.x - (this.momentumTorque.x * damping))) * Mathf.Sign(_torque.x);
+            this.netTorque.y += _torque.y - (this.momentumTorque.y * damping);//Mathf.Max(0f, Mathf.Abs(_torque.y - (this.momentumTorque.y * damping))) * Mathf.Sign(_torque.y);
+            this.netTorque.z += _torque.z - (this.momentumTorque.z * damping);//Mathf.Max(0f, Mathf.Abs(_torque.z - (this.momentumTorque.z * damping))) * Mathf.Sign(_torque.z);
+        }
+        else {
+            this.netTorque += _torque;
+        }
     }
 }
