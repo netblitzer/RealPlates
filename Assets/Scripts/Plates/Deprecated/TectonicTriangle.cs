@@ -50,7 +50,7 @@ public class TectonicTriangle {
     private float nextVelocity;
 
     public TectonicTriangle (Planet _parent, int _a, int _b, int _c) :
-        this(_parent, _parent.TectonicPoints[_a], _parent.TectonicPoints[_b], _parent.TectonicPoints[_c]) { }
+        this(_parent, _parent.dep__TectonicPoints[_a], _parent.dep__TectonicPoints[_b], _parent.dep__TectonicPoints[_c]) { }
 
     public TectonicTriangle (Planet _parent, TectonicPoint _a, TectonicPoint _b, TectonicPoint _c) {
         this.parentPlanet = _parent;
@@ -159,7 +159,7 @@ public class TectonicTriangle {
         // Grab the neighbor triangles (the opposite halfside to ours).
         for (int i = 0; i < 3; i++)
         {
-            this.edgeNeighbors[i] = this.parentPlanet.triangleSides[this.parentPlanet.triangleSides[this.SideIndices[i]].Opposite].parentTriangle;
+            this.edgeNeighbors[i] = this.parentPlanet.dep__triangleSides[this.parentPlanet.dep__triangleSides[this.SideIndices[i]].Opposite].parentTriangle;
         }
     }
 
@@ -171,10 +171,10 @@ public class TectonicTriangle {
         // Go through each of our halfsides and see if they're external.
         for (int i = 0; i < 3; i++)
         {
-            this.parentPlanet.triangleSides[this.SideIndices[i]].CalculateExternality();
+            this.parentPlanet.dep__triangleSides[this.SideIndices[i]].CalculateExternality();
 
             // Also grab the neighbor triangles (the opposite halfside to ours).
-            this.edgeNeighbors[i] = this.parentPlanet.triangleSides[this.parentPlanet.triangleSides[this.SideIndices[i]].Opposite].parentTriangle;
+            this.edgeNeighbors[i] = this.parentPlanet.dep__triangleSides[this.parentPlanet.dep__triangleSides[this.SideIndices[i]].Opposite].parentTriangle;
 
             // If the neighbor isn't in our plate, set the triangle as external.
             if (this.edgeNeighbors[i].parentPlate.PlateIndex != this.parentPlate.PlateIndex)

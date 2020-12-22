@@ -16,6 +16,8 @@ public class PTBoundary {
     public PTBoundaryCorner FirstCorner { get; private set; }
     public PTBoundaryCorner SecondCorner { get; private set; }
 
+    private float cornerDesired = 0f;
+
 
     public PTBoundary (Planet _parentP, PTHalfSide _side1, PTHalfSide _side2) {
         this.parentPlanet = _parentP;
@@ -66,11 +68,38 @@ public class PTBoundary {
     public void SetCornerDesired (float _desired = -1f) {
         this.FirstCorner.SetDesired(_desired);
         this.SecondCorner.SetDesired(_desired);
+        this.cornerDesired = _desired;
     }
 
-    public void UpdateEdgeDesired() {
+    public void UpdateEdgeDesired () {
         this.FirstSide.SetDesired(this.FirstSide.CurrentLength);
         this.SecondSide.SetDesired(this.SecondSide.CurrentLength);
+    }
+
+    public void UpdateCornerPoints () {
+        this.FirstCorner.UpdateCornerPoints(this.FirstSide, this.SecondSide.End);
+        this.SecondCorner.UpdateCornerPoints(this.SecondSide, this.FirstSide.End);
+    }
+
+    public void SetSide (string _which, PTHalfSide _side) {
+        if (_which.ToLower() == "first") {
+            // Assign the new FirstSide and create a new corner.
+            this.FirstSide = _side;
+            this.FirstSide.SetParentBoundary(this);
+            this.FirstCorner = new PTBoundaryCorner(this.FirstSide, this.SecondSide.End);
+            this.FirstCorner.SetDesired(this.cornerDesired);
+            // Update the SecondCorner to use the new end point on the FirstSide.
+            this.SecondCorner.UpdateCornerPoints(this.SecondSide, this.FirstSide.End);
+        }
+        else if (_which.ToLower() == "second") {
+            // Assign the new SecondSide and create a new corner.
+            this.SecondSide = _side;
+            this.SecondSide.SetParentBoundary(this);
+            this.SecondCorner = new PTBoundaryCorner(this.SecondSide, this.FirstSide.End);
+            this.SecondCorner.SetDesired(this.cornerDesired);
+            // Update the FirstCorner to use the new end point on the SecondSide.
+            this.FirstCorner.UpdateCornerPoints(this.FirstSide, this.SecondSide.End);
+        }
     }
 /*
     public void CalculateReturnForce () {

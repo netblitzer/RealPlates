@@ -43,7 +43,7 @@ public class PTHalfSide {
         // Calculate the current length of the side.
         this.length = Mathf.Acos(Vector3.Dot(this.Start.SphereLocation, this.End.SphereLocation));
 
-        if (Mathf.Abs(this.length) < 0.0001f || float.IsNaN(this.length)) {
+        if (Mathf.Abs(this.length) < 0.000005f || float.IsNaN(this.length)) {
             this.length = 0f;
         }
 
@@ -51,7 +51,8 @@ public class PTHalfSide {
         //  If the gap stays relatively the same, stiffness will increase. If the gap is rapidly changing, stiffness will drop.
         float lengthChange = Mathf.Abs(this.length - this.previousLength);
         float stiffnessChange = Mathf.Min(_lengthChangeMax, Mathf.Max(-_lengthChangeMax, _lengthChangeMax - lengthChange)) * 20f;
-        this.stiffness = Mathf.Min(100f, Mathf.Max(5f, this.stiffness + stiffnessChange));
+        //this.stiffness = Mathf.Min(100f, Mathf.Max(5f, this.stiffness + stiffnessChange));
+        this.stiffness = 15f;
 
         this.Cross = Vector3.Cross(this.Start.SphereLocation, this.End.SphereLocation).normalized;
     }
@@ -68,8 +69,8 @@ public class PTHalfSide {
         float forceDiff = (this.desired - this.length) / 2f;
         Vector3 torqueVector = this.Cross * forceDiff * this.stiffness * _timestep;
 
-        this.Start.AddTorque(-torqueVector, 2f);
-        this.End.AddTorque(torqueVector, 2f);
+        this.Start.AddTorque(-torqueVector, 1f);
+        this.End.AddTorque(torqueVector, 1f);
 
     }
 }

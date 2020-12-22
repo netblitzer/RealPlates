@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 using System.Collections;
+using Boo.Lang;
 
 public class PTTriangle {
 
@@ -8,6 +9,8 @@ public class PTTriangle {
     public PTPoint[] Points { get; private set; }
 
     public PTHalfSide[] Sides { get; private set; }
+
+    private Vector3 center;
 
     /*
     public PTTriangle (PTPoint _a, PTPoint _b, PTPoint _c) {
@@ -40,9 +43,19 @@ public class PTTriangle {
 
         return nextSide;
     }
+    public PTHalfSide GetPreviousHalfSide (PTHalfSide _initial) {
+        PTHalfSide prevSide = null;
 
+        for (int i = 0; i < 3; i++) {
+            if (this.Sides[i] == _initial) {
+                prevSide = this.Sides[(i + 2) % 3];
+                break;
+            }
+        }
 
-    private Vector3 center;
+        return prevSide;
+    }
+
     public void GetCenter () {
         for (int i = 0; i < 3; i++) {
             this.center += this.Points[i].Location;
@@ -50,6 +63,30 @@ public class PTTriangle {
 
         this.center /= 3f;
         this.center.Normalize();
+    }
+
+    public void CalculateTriangleState () {
+        // Calculate if the triangle needs to split.
+
+        // See how many sides are too large and need to be split (in case all need to be split in the same frame).
+        int tooLarge = 0;
+        for (int i = 0; i < 3; i++) {
+            if (this.Sides[i].CurrentLength > this.parent.averageSideLength * 2f) {
+                tooLarge++;
+            }
+        }
+
+        // If any of the triangles are too large and need to be split.
+        if (tooLarge > 0) {
+            List<PTHalfSide> sidesToSplit = new List<PTHalfSide>(3);
+            for (int i = 0; i < 3; i++) {
+                if (this.Sides[i].CurrentLength > this.parent.averageSideLength * 2f) {
+                    sidesToSplit.Add(this.Sides[i]);
+                }
+            }
+
+            this.parent.SplitTriangle(this, sidesToSplit.ToArray());
+        }
     }
 
     public void ContractPointsTest (float _percent) {

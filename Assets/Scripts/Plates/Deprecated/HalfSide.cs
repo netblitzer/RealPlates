@@ -38,7 +38,7 @@ public class HalfSide {
     }
 
     public HalfSide (TectonicTriangle _parent, Planet _parentPlanet, int _start, int _end) :
-        this(_parent, _parentPlanet, _parentPlanet.TectonicPoints[_start], _parentPlanet.TectonicPoints[_end]) { }
+        this(_parent, _parentPlanet, _parentPlanet.dep__TectonicPoints[_start], _parentPlanet.dep__TectonicPoints[_end]) { }
 
     public void SetDirection (Vector2 _direction) {
         this.Direction = _direction;
@@ -65,7 +65,7 @@ public class HalfSide {
     public Vector2 CalculateDirection ( ) {
         // Calculate the normal direciton of the halfside. Make sure we use the same
         //  start and end for both halfsides in order to clear out problems.
-        this.Direction = this.parentPlanet.TectonicPoints[Mathf.Max(this.StartIndex, this.EndIndex)].GetDirectionToPoint(this.parentPlanet.TectonicPoints[Mathf.Min(this.StartIndex, this.EndIndex)].SpherePosition);
+        this.Direction = this.parentPlanet.dep__TectonicPoints[Mathf.Max(this.StartIndex, this.EndIndex)].GetDirectionToPoint(this.parentPlanet.dep__TectonicPoints[Mathf.Min(this.StartIndex, this.EndIndex)].SpherePosition);
         // If the end is larger than the start, invert the normal so both sides have opposite directions.
         this.Direction = (this.StartIndex > this.EndIndex) ? this.Direction : this.Direction * -1f;
         return this.Direction;
@@ -73,7 +73,7 @@ public class HalfSide {
 
     public bool CalculateExternality ( )
     {
-        if (this.parentTriangle.parentPlate.PlateIndex != this.parentPlanet.triangleSides[this.Opposite].parentTriangle.parentPlate.PlateIndex)
+        if (this.parentTriangle.parentPlate.PlateIndex != this.parentPlanet.dep__triangleSides[this.Opposite].parentTriangle.parentPlate.PlateIndex)
         {
             this.IsExternal = true;
         }
@@ -98,7 +98,7 @@ public class HalfSide {
         }
 
         // If our opposite is subducting under us, we can't subduct.
-        HalfSide oppositeSide = this.parentPlanet.triangleSides[this.Opposite];
+        HalfSide oppositeSide = this.parentPlanet.dep__triangleSides[this.Opposite];
         if (oppositeSide.IsSubducting) {
             return;
         }

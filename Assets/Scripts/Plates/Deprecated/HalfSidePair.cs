@@ -56,8 +56,8 @@ public class HalfSidePair
     /// Calculates the direction and lengths of the halfsides that make up this pair.
     /// </summary>
     public void CalculateHalfSideProperties () {
-        HalfSide side1 = this.parentPlanet.triangleSides[this.firstHalf];
-        HalfSide side2 = this.parentPlanet.triangleSides[this.secondHalf];
+        HalfSide side1 = this.parentPlanet.dep__triangleSides[this.firstHalf];
+        HalfSide side2 = this.parentPlanet.dep__triangleSides[this.secondHalf];
 
         // Calculate the normal direciton of the first halfside.
         Vector2 direction = side1.Start.GetDirectionToPoint(side1.End.SpherePosition);
@@ -95,8 +95,8 @@ public class HalfSidePair
     /// </summary>
     public void CalculateHalfSideStatus (float _ageStep) {
         // Get our halfsides and their parent triangles.
-        HalfSide side1 = this.parentPlanet.triangleSides[this.firstHalf];
-        HalfSide side2 = this.parentPlanet.triangleSides[this.secondHalf];
+        HalfSide side1 = this.parentPlanet.dep__triangleSides[this.firstHalf];
+        HalfSide side2 = this.parentPlanet.dep__triangleSides[this.secondHalf];
 
         TectonicTriangle triangle1 = side1.parentTriangle;
         TectonicTriangle triangle2 = side2.parentTriangle;
@@ -191,7 +191,7 @@ public class HalfSidePair
                     }
 
                     // Combine the plates and remove the excess one.
-                    this.parentPlanet.TectonicPlates[primaryPlate].CombinePlates(this.parentPlanet.TectonicPlates[secondaryPlate]);
+                    this.parentPlanet.dep__TectonicPlates[primaryPlate].CombinePlates(this.parentPlanet.dep__TectonicPlates[secondaryPlate]);
                     this.parentPlanet.RemovePlate(secondaryPlate);
                 }
             }
@@ -316,7 +316,7 @@ public class HalfSidePair
     }
 
     public void TestRender () {
-        HalfSide side1 = this.parentPlanet.triangleSides[this.firstHalf];
+        HalfSide side1 = this.parentPlanet.dep__triangleSides[this.firstHalf];
 
         switch (this.HalfSideStatus) {
             case HalfSideStatusType.Connecting:

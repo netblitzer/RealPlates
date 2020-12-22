@@ -36,6 +36,13 @@ public class PTBoundaryCorner {
         this.desired = this.gap;
     }
 
+    public void UpdateCornerPoints (PTHalfSide _side, PTPoint _opposite) {
+        this.TriangleSide = _side;
+        this.OppositePoint = _opposite;
+
+        this.CalculateCorner();
+    }
+
     public void SetIndices () {
         this.indices[0] = this.OppositePoint.RenderIndex;
         this.indices[1] = this.TriangleSide.End.RenderIndex;
@@ -72,21 +79,22 @@ public class PTBoundaryCorner {
 
         // Check to ensure that the gap is always set as a proper value or 0 if it's in floating
         //  point error range.
-        if (float.IsNaN(this.gap) || Mathf.Abs(this.gap) < 0.0001f) {
+        if (float.IsNaN(this.gap) || Mathf.Abs(this.gap) < 0.000005f) {
             this.gap = 0f;
         }
 
         // Calculate the stiffness of the boundary.
         //  If the gap stays relatively the same, stiffness will increase. If the gap is rapidly changing, stiffness will drop.
         float gapChange = Mathf.Abs(this.gap - this.previousGap);
-        this.stiffness = Mathf.Min(100f, Mathf.Max(5f, this.stiffness + (Mathf.Min(_gapChangeMax, Mathf.Max(-_gapChangeMax, _gapChangeMax - gapChange)) * 20f)));
+        //this.stiffness = Mathf.Min(100f, Mathf.Max(5f, this.stiffness + (Mathf.Min(_gapChangeMax, Mathf.Max(-_gapChangeMax, _gapChangeMax - gapChange)) * 20f)));
+        this.stiffness = 300f;
     }
 
     public void CalculateCornerForce (float _timestep) {
         float forceDiff = (this.desired - this.gap) / 2f;
         Vector3 torqueVector = Vector3.Cross(this.OppositePoint.SphereLocation, this.TriangleSide.Start.SphereLocation).normalized * forceDiff * this.stiffness * _timestep;
 
-        this.OppositePoint.AddTorque(-torqueVector, 2f);
-        this.TriangleSide.Start.AddTorque(torqueVector, 2f);
+        this.OppositePoint.AddTorque(-torqueVector, 1f);
+        this.TriangleSide.Start.AddTorque(torqueVector, 1f);
     }
 }

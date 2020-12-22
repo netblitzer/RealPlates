@@ -10,42 +10,52 @@ public class Planet : MonoBehaviour {
 
     public GenerationPhase currentPhase;
 
-    public ComputeShader PlateCompute;
-
     public bool autoUpdate = true;
 
     public PlanetSettings planetSettings;
 
+
+
+    public ComputeShader PlateCompute;
+    
     [HideInInspector]
     public bool planetSettingsFoldout = true;
 
-    private List<TectonicTriangle> tectonicTriangles;
+    private List<TectonicTriangle> dep__tectonicTriangles;
 
     // Array of all possible TectonicPlates including extra space.
-    public TectonicPlate[] TectonicPlates { get; private set; }
+    public TectonicPlate[] dep__TectonicPlates { get; private set; }
     // List of all empty plate indices.
-    private List<int> UnusedPlateIndices;
+    private List<int> dep__UnusedPlateIndices;
 
-    public int CurrentPlateCount;
-    public int PlateTextureWidth = 8;
-    public int MaxPlateCount;
+    public int dep__CurrentPlateCount;
+    public int dep__PlateTextureWidth = 8;
+    public int dep__MaxPlateCount;
 
     // Array of all possible TectonicPoints including extra space.
-    public TectonicPoint[] TectonicPoints { get; private set; }
+    public TectonicPoint[] dep__TectonicPoints { get; private set; }
     // List of all empty places in the tectonicPoints array.
-    public List<int> UnusedPointIndices { get; private set; }
+    public List<int> dep__UnusedPointIndices { get; private set; }
 
-    public int CurrentPointCount;
-    public int MaxPointCount;
+    public int dep__CurrentPointCount;
+    public int dep__MaxPointCount;
 
-    public Dictionary<int, HalfSide> triangleSides;
-    public Dictionary<int, HalfSidePair> triangleSidePairs;
+    public Dictionary<int, HalfSide> dep__triangleSides;
+    public Dictionary<int, HalfSidePair> dep__triangleSidePairs;
 
-    public Vector3 RotationAxis = Vector3.up;
+    public Vector3 dep__RotationAxis = Vector3.up;
 
-    public bool GrowOverTime = false;
+    public bool dep__GrowOverTime = false;
 
-    public int halfsides;
+    public int dep__halfsides;
+
+
+    /// ---- Planet Parameter Lists ---- ///
+    public List<PTPoint> ptPoints;
+    public List<PTTriangle> ptTriangles;
+    public List<PTHalfSide> ptSides;
+    public List<PTBoundary> ptBoundaries;
+    public List<PTBoundaryGapCap> ptBoundaryCaps;
 
 
     /// ---- Mesh Parameters ---- ///
@@ -55,55 +65,63 @@ public class Planet : MonoBehaviour {
     public Material heightmapMaterial;
     private List<Material> submeshMaterials;
 
-    private List<int> MeshIndices;
+    private List<int> dep__MeshIndices;
+
 
     /// ---- General Generation Parameters ---- ///
 
 
     /// ---- Initial Generation ---- ///
-    private List<Vector3> tempPositions;
-    private List<Triangle> tempTriangles;
+    private ISphereShape sphereShape;
 
 
     /// ---- Plate Generation ---- ///
-    private bool platesGrown;
     public int TrianglesGrown = 0;
 
 
     /// ---- Plate Simulation ---- ///
     public float averageTriangleArea = 0;
     public float averageSideLength = 0;
+    public int selectedViewPoint;
+
 
 
     private void Initialize() {
-        this.tempTriangles = new List<Triangle>();
-        this.tempPositions = new List<Vector3>();
+        this.dep__triangleSides = new Dictionary<int, HalfSide>();
+        this.dep__triangleSidePairs = new Dictionary<int, HalfSidePair>();
 
-        this.triangleSides = new Dictionary<int, HalfSide>();
-        this.triangleSidePairs = new Dictionary<int, HalfSidePair>();
+        this.dep__tectonicTriangles = new List<TectonicTriangle>();
+        this.dep__TectonicPlates = new TectonicPlate[this.dep__MaxPlateCount];
+        this.dep__UnusedPlateIndices = new List<int>(this.dep__MaxPlateCount);
 
-        this.tectonicTriangles = new List<TectonicTriangle>();
-        this.TectonicPlates = new TectonicPlate[this.MaxPlateCount];
-        this.UnusedPlateIndices = new List<int>(this.MaxPlateCount);
-
-        this.MaxPlateCount = this.PlateTextureWidth * this.PlateTextureWidth;
+        this.dep__MaxPlateCount = this.dep__PlateTextureWidth * this.dep__PlateTextureWidth;
 
         if (this.planetSettings.GenerateRandomAxis) {
-            this.RotationAxis = new Vector3(Random.Range(-1f, 1f), Random.Range(-1f, 1f), Random.Range(-1f, 1f)).normalized;
+            this.dep__RotationAxis = new Vector3(Random.Range(-1f, 1f), Random.Range(-1f, 1f), Random.Range(-1f, 1f)).normalized;
         }
 
-        this.platesGrown = false;
         this.currentPhase = GenerationPhase.InitialPlateGeneration;
 
         this.averageTriangleArea = 0;
         this.averageSideLength = 0;
 
-        this.CurrentPlateCount = 0;
-        this.CurrentPointCount = 0;
+        this.dep__CurrentPlateCount = 0;
+        this.dep__CurrentPointCount = 0;
         this.TrianglesGrown = 0;
+        this.dep__halfsides = 0;
 
 
-        this.halfsides = 0;
+        // Initialize lists.
+        this.ptPoints = new List<PTPoint>();
+        this.ptTriangles = new List<PTTriangle>();
+        this.ptSides = new List<PTHalfSide>();
+        this.ptBoundaries = new List<PTBoundary>();
+        this.ptBoundaryCaps = new List<PTBoundaryGapCap>();
+
+        // Generate the base sphere of the planet.
+        this.sphereShape = new Icosahedron();
+        ((Icosahedron) this.sphereShape).Initialize(this.planetSettings.SubDivisions, false);
+        this.sphereShape.GenerateSphere();
     }
 
     private void InitializeGameObject() {
@@ -139,7 +157,7 @@ public class Planet : MonoBehaviour {
     // https://medium.com/@peter_winslow/creating-procedural-planets-in-unity-part-1-df83ecb12e91
 
 
-    private void AddIntialPoints() {
+    /*private void AddIntialPoints() {
         // An icosohedron is 3 orthogonal rectangles, thus we can share point information.
         float t = (1.0f + Mathf.Sqrt(5.0f)) / 2.0f;
 
@@ -206,9 +224,9 @@ public class Planet : MonoBehaviour {
             // Replace all our old polygons with the new set of subdivided ones.
             this.tempTriangles = newTris;
         }
-    }
+    }*/
 
-    private int GetMidPointIndex(Dictionary<int, int> cache, int indexA, int indexB) {
+    /*private int GetMidPointIndex(Dictionary<int, int> cache, int indexA, int indexB) {
         // We create a key out of the two original indices
         // by storing the smaller index in the upper two bytes
         // of an integer, and the larger index in the lower two
@@ -239,63 +257,40 @@ public class Planet : MonoBehaviour {
 
         cache.Add(key, index);
         return index;
-    }
+    }*/
 
     #endregion
 
-    /*
-    private Vector3 RotateVector(Vector3 _original, Vector3 _axis, float _angle) {
-        // Find the cross and dot products from the original vector and the rotation axis.
-        Vector3 cross = Vector3.Cross(_axis, _original);
-        float dot = Vector3.Dot(_axis, _original);
-
-        // Rotate based on Rodrigues' Rotation Formula.
-        Vector3 rotatedVector = (_original * Mathf.Cos(_angle))
-            + (cross * Mathf.Sin(_angle))
-            + (_axis * dot * (1 - Mathf.Cos(_angle)));
-        return rotatedVector;
-    }
-
-    private float SpheretoSphereIntersectionPlane(float _originRadius, float _minorRadius) {
-        return this.SpheretoSphereIntersectionPlane(_originRadius, _minorRadius, _originRadius);
-    }
-
-    private float SpheretoSphereIntersectionPlane(float _originRadius, float _minorRadius, float _distanceFromOrigin) {
-        float distance = (Mathf.Pow(_distanceFromOrigin, 2) + Mathf.Pow(_originRadius, 2) - Mathf.Pow(_minorRadius, 2)) / (2f * _distanceFromOrigin);
-        return distance;
-    }
-    */
-
     #region General Planet Functions
 
-    public bool SetHalfSide(HalfSide _newSide)
+    /*public bool SetHalfSide(HalfSide _newSide)
     {
         return this.SetHalfSide(_newSide.Index, _newSide);
-    }
+    }*/
 
     public bool SetHalfSide (int _key, HalfSide _newSide) {
 
-        this.halfsides++;
+        this.dep__halfsides++;
 
-        if (this.triangleSides.ContainsKey(_key)) {
+        if (this.dep__triangleSides.ContainsKey(_key)) {
             return false;
         }
 
-        this.triangleSides.Add(_key, _newSide);
+        this.dep__triangleSides.Add(_key, _newSide);
 
         // Add the HalfSidePair if it doesn't exist.
         int pairIndex = (Mathf.Max(_newSide.StartIndex, _newSide.EndIndex) << 16) + Mathf.Min(_newSide.StartIndex, _newSide.EndIndex);
-        if (!this.triangleSidePairs.ContainsKey(pairIndex)) {
+        if (!this.dep__triangleSidePairs.ContainsKey(pairIndex)) {
             HalfSidePair newPair = new HalfSidePair(this, pairIndex, _newSide.Index, _newSide.Opposite);
 
             // Add it in both locations for now for quick access.
-            this.triangleSidePairs.Add(pairIndex, newPair);
+            this.dep__triangleSidePairs.Add(pairIndex, newPair);
         }
 
         return true;
     }
 
-    public bool UpdateHalfSide (HalfSide _side) {
+    /*public bool UpdateHalfSide (HalfSide _side) {
         if (this.triangleSides.ContainsKey(_side.Index)) {
             this.triangleSides[_side.Index] = _side;
 
@@ -304,9 +299,9 @@ public class Planet : MonoBehaviour {
         else {
             return this.SetHalfSide(_side.Index, _side);
         }
-    }
+    }*/
 
-    private void UpdatePlateMeshes () {
+    /*private void UpdatePlateMeshes () {
         Profiler.BeginSample("Updating Plate Meshes");
 
         //if (this.currentPhase == GenerationPhase.InitialPlateGeneration) {
@@ -330,11 +325,11 @@ public class Planet : MonoBehaviour {
         Profiler.EndSample();
 
         // Go through all the plates and have them update their individual submeshes.
-        /*for (int i = 0; i < this.CurrentPlateCount; i++) {
+        *//*for (int i = 0; i < this.CurrentPlateCount; i++) {
             if (this.TectonicPlates[i] != null) {
                 this.TectonicPlates[i].UpdateMesh();
             }
-        }*/
+        }*//*
 
         int plateTriangleRequirement = Mathf.Max(Mathf.RoundToInt(this.planetSettings.SubDivisions * this.planetSettings.SubDivisions), 2);
         Dictionary<int, List<int>> plateMeshIndices = new Dictionary<int, List<int>>();
@@ -380,22 +375,22 @@ public class Planet : MonoBehaviour {
         this.mRenderer.materials = this.submeshMaterials.ToArray();
 
         Profiler.EndSample();
-    }
+    }*/
 
     public void UpdateTectonicPlateMesh (List<int> _triangleIndices, int _plateIndex) {
         for (int i = 0; i < 3; i++) {
-            if (this.MeshIndices.Count <= (_plateIndex * 3) + i) {
-                this.MeshIndices.Insert((_plateIndex * 3) + i, _triangleIndices[i]);
+            if (this.dep__MeshIndices.Count <= (_plateIndex * 3) + i) {
+                this.dep__MeshIndices.Insert((_plateIndex * 3) + i, _triangleIndices[i]);
             }
             else {
-                this.MeshIndices[(_plateIndex * 3) + i] = _triangleIndices[i];
+                this.dep__MeshIndices[(_plateIndex * 3) + i] = _triangleIndices[i];
             }
         }
 
-        this.mesh.SetIndices(this.MeshIndices, MeshTopology.Triangles, 0);// _submesh);
+        this.mesh.SetIndices(this.dep__MeshIndices, MeshTopology.Triangles, 0);// _submesh);
     }
 
-    public void UpdateTectonicPlateMaterial (Color _plateColor, int _submesh) {
+    /*public void UpdateTectonicPlateMaterial (Color _plateColor, int _submesh) {
         Material subMeshMat = new Material(this.heightmapMaterial);
         subMeshMat.SetColor("_Color", _plateColor);
 
@@ -406,9 +401,9 @@ public class Planet : MonoBehaviour {
             this.submeshMaterials[_submesh] = subMeshMat;
         }
         //this.mRenderer.materials = this.submeshMaterials.ToArray();
-    }
+    }*/
 
-    public bool RemoveHalfSide (HalfSide _side)
+    /*public bool RemoveHalfSide (HalfSide _side)
     {
         if (this.triangleSides.ContainsKey(_side.Index))
         {
@@ -420,7 +415,7 @@ public class Planet : MonoBehaviour {
         {
             return false;
         }
-    }
+    }*/
 
     public bool RemovePlate (TectonicPlate _plate) {
         if (_plate.TriangleCount > 0) {
@@ -428,15 +423,15 @@ public class Planet : MonoBehaviour {
         }
 
         // Remove the plate from our list and add the index to the unused list.
-        this.TectonicPlates[_plate.PlateIndex] = null;
-        this.UnusedPlateIndices.Add(_plate.PlateIndex);
-        this.CurrentPlateCount--;
+        this.dep__TectonicPlates[_plate.PlateIndex] = null;
+        this.dep__UnusedPlateIndices.Add(_plate.PlateIndex);
+        this.dep__CurrentPlateCount--;
 
         return true;
     }
 
     public bool RemovePlate (int _plateIndex) {
-        return this.RemovePlate(this.TectonicPlates[_plateIndex]);
+        return this.RemovePlate(this.dep__TectonicPlates[_plateIndex]);
     }
 
     #endregion
@@ -444,7 +439,7 @@ public class Planet : MonoBehaviour {
 
     #region Planet Generation Functions
 
-    private void JitterPlanet () {
+    /*private void JitterPlanet () {
         float adjustedJitterAmount = this.planetSettings.Jitter / Mathf.Max(Mathf.Pow(this.planetSettings.SubDivisions, 2), 1);
         TectonicPoint point;
 
@@ -466,9 +461,9 @@ public class Planet : MonoBehaviour {
 
             this.tectonicTriangles[i].SetInitialVelocity(new Vector2(Mathf.Cos(jitterDirection), Mathf.Sin(jitterDirection)), jitterVelocity);
         }
-    }
+    }*/
 
-    private TectonicPlate SeedNewPlate () {
+    /*private TectonicPlate SeedNewPlate () {
         int tries = 0;
         int randomTriangle;
 
@@ -490,18 +485,18 @@ public class Planet : MonoBehaviour {
         } while (tries < 100);
 
         return null;
-    }
+    }*/
 
-    private void SeedPlates () {
+    /*private void SeedPlates () {
         int plateCount = Random.Range(this.planetSettings.plateSettings.MinSeedPlateCount, Mathf.Min(this.planetSettings.plateSettings.MaxSeedPlateCount, this.MaxPlateCount));
         Debug.Log("Seed Plate count: " + plateCount);
 
         for (int i = 0; i < plateCount; i++) {
             this.SeedNewPlate();
         }
-    }
+    }*/
 
-    private void GrowStartingPlates (bool _singleStep, int _stepsPerFrame) {
+    /*private void GrowStartingPlates (bool _singleStep, int _stepsPerFrame) {
 
         // Add all the plates that can grow to the current queue of plates.
         List<TectonicPlate> queue = new List<TectonicPlate>(this.CurrentPlateCount);
@@ -589,6 +584,90 @@ public class Planet : MonoBehaviour {
         }
 
         this.ChangePhase(GenerationPhase.PlateSimulation);
+    }*/
+
+    public void SplitTriangle (PTTriangle _origin, params PTHalfSide[] _splitSides) {
+        if (_splitSides.Length == 0) {
+            return;
+        }
+
+        if (_splitSides.Length < 3) {
+            for (int i = 0; i < _splitSides.Length; i++) {
+                PTHalfSide opposingSide = _splitSides[i].ParentBoundary.FirstSide == _splitSides[i] ? _splitSides[i].ParentBoundary.SecondSide : _splitSides[i].ParentBoundary.FirstSide;
+                PTTriangle opposingTriangle = opposingSide.ParentTriangle;
+
+                // Create the two new points along the sides being broken up.
+                PTPoint originNewPoint = new PTPoint(this, (_splitSides[i].Start.SphereLocation + _splitSides[i].End.SphereLocation).normalized);
+                PTPoint opposingNewPoint = new PTPoint(this, (opposingSide.Start.SphereLocation + opposingSide.End.SphereLocation).normalized);
+
+                // Save the points that will be used as the corner for the new triangle.
+                PTPoint originOldCorner = _splitSides[i].End;
+                PTPoint opposingOldCorner = opposingSide.Start;
+
+                // Add the points into the planet's array.
+                this.ptPoints.Add(originNewPoint);
+                this.ptPoints.Add(opposingNewPoint);
+
+                // Set the PTHalfSide's end (for origin) and start (for opposing) point to the new points.
+                _splitSides[i].End = originNewPoint;
+                opposingSide.End = opposingNewPoint;
+
+                // Move the next (for origin) and previous (for opposing) PTHalfSide's shared point to the new point.
+                _origin.GetNextHalfSide(_splitSides[i]).Start = originNewPoint;
+                opposingTriangle.GetPreviousHalfSide(opposingSide).End = opposingNewPoint;
+
+                // We can now work on creating the new triangles/sides/boundaries.
+
+                // Clone the shared corner that wasn't moved.
+                PTPoint originClonedStaticPoint = new PTPoint(this, _origin.GetNextHalfSide(_splitSides[i]).End.SphereLocation);
+                PTPoint opposingClonedStaticPoint = new PTPoint(this, opposingTriangle.GetPreviousHalfSide(opposingSide).Start.SphereLocation);
+
+                // Clone the split point.
+                PTPoint originClonedSplitPoint = new PTPoint(this, originNewPoint.SphereLocation);
+                PTPoint opposingClonedSplitPoint = new PTPoint(this, opposingNewPoint.SphereLocation);
+
+                // Add the points into the planet's array.
+                this.ptPoints.Add(originClonedStaticPoint);
+                this.ptPoints.Add(originClonedSplitPoint);
+                this.ptPoints.Add(opposingClonedStaticPoint);
+                this.ptPoints.Add(opposingClonedSplitPoint);
+
+                // Create the new sides for the two new triangles.
+                PTHalfSide[] originNewSides = new PTHalfSide[3] { 
+                    new PTHalfSide(this, originClonedSplitPoint, originOldCorner), 
+                    new PTHalfSide(this, originOldCorner, originClonedStaticPoint), 
+                    new PTHalfSide(this, originClonedStaticPoint, originClonedSplitPoint) 
+                };
+                PTHalfSide[] opposingNewSides = new PTHalfSide[3] {
+                    new PTHalfSide(this, opposingClonedSplitPoint, opposingOldCorner),
+                    new PTHalfSide(this, opposingOldCorner, opposingClonedStaticPoint),
+                    new PTHalfSide(this, opposingClonedStaticPoint, opposingClonedSplitPoint)
+                };
+
+                // Update the old boundaries for the sides that moved.
+                if (_origin.GetNextHalfSide(_splitSides[i]).ParentBoundary.FirstSide == _origin.GetNextHalfSide(_splitSides[i])) {
+                    // If origin is the firstside, update the second side.
+                    _origin.GetNextHalfSide(_splitSides[i]).ParentBoundary.SetSide("second", originNewSides[2]);
+                }
+                else {
+                    // If origin is not the firstside, update the first side.
+                    _origin.GetNextHalfSide(_splitSides[i]).ParentBoundary.SetSide("first", originNewSides[2]);
+                }
+                // Opposing triangle.
+                if (opposingTriangle.GetPreviousHalfSide(opposingSide).ParentBoundary.FirstSide == opposingTriangle.GetPreviousHalfSide(opposingSide)) {
+                    // If opposing is the firstside, update the second side.
+                    opposingTriangle.GetPreviousHalfSide(opposingSide).ParentBoundary.SetSide("second", opposingNewSides[2]);
+                }
+                else {
+                    // If opposing is not the firstside, update the first side.
+                    opposingTriangle.GetPreviousHalfSide(opposingSide).ParentBoundary.SetSide("first", opposingNewSides[2]);
+                }
+                _splitSides[i].ParentBoundary.UpdateCornerPoints();
+
+                // Create the new boundaries.
+
+            }
+        }
     }
 
     public void GeneratePlanet () {
@@ -596,77 +675,64 @@ public class Planet : MonoBehaviour {
         this.Initialize();
         this.InitializeGameObject();
 
-
-        this.icosahedron = new Icosahedron();
-
-        this.icosahedron.Initialize(this.planetSettings.SubDivisions, false);
-
-        this.icosahedron.GenerateSphere();
-
-
-        this.points = new List<PTPoint>();
-        this.triangles = new List<PTTriangle>();
-        this.sides = new List<PTHalfSide>();
-        this.boundaries = new List<PTBoundary>();
-        this.boundaryCaps = new List<PTBoundaryGapCap>();
-
+        // Initialize dictionaries for initial generation.
         Dictionary<int, PTHalfSide[]> sidePairs = new Dictionary<int, PTHalfSide[]>();
         Dictionary<int, List<PTHalfSide>> cornerGroups = new Dictionary<int, List<PTHalfSide>>();
 
-        for (int i = 0; i < this.icosahedron.Triangles.Count; i++) {
+        for (int i = 0; i < this.sphereShape.Triangles.Count; i++) {
             // Create the points.
             for (int j = 0; j < 3; j++) {
-                this.points.Add(new PTPoint(this, this.icosahedron.Points[this.icosahedron.Triangles[i].Indices[j]]));
-                this.points[(i * 3) + j].RenderIndex = this.icosahedron.Triangles[i].Indices[j];
+                this.ptPoints.Add(new PTPoint(this, this.sphereShape.Points[this.sphereShape.Triangles[i].Indices[j]]));
+                this.ptPoints[(i * 3) + j].RenderIndex = this.sphereShape.Triangles[i].Indices[j];
             }
 
             // Create the sides and assign them to their triangles.
             for (int j = 0; j < 3; j++) {
                 // Create the side.
-                this.sides.Add(new PTHalfSide(this, this.points[(i * 3) + j], this.points[((i * 3) + (j + 1) % 3)]));
+                this.ptSides.Add(new PTHalfSide(this, this.ptPoints[(i * 3) + j], this.ptPoints[((i * 3) + (j + 1) % 3)]));
 
                 // Get the index that this side will use to identify its pairing.
-                int greater = Mathf.Max(this.icosahedron.Triangles[i].Indices[j], this.icosahedron.Triangles[i].Indices[(j + 1) % 3]);
-                int lesser = Mathf.Min(this.icosahedron.Triangles[i].Indices[j], this.icosahedron.Triangles[i].Indices[(j + 1) % 3]);
+                int greater = Mathf.Max(this.sphereShape.Triangles[i].Indices[j], this.sphereShape.Triangles[i].Indices[(j + 1) % 3]);
+                int lesser = Mathf.Min(this.sphereShape.Triangles[i].Indices[j], this.sphereShape.Triangles[i].Indices[(j + 1) % 3]);
                 int sideIndex = (greater << 16) + lesser;
 
                 // Add it to the sidePairs dictionary, creating a new list if needed.
                 if (sidePairs.ContainsKey(sideIndex)) {
-                    sidePairs[sideIndex][1] = this.sides[this.sides.Count - 1];
+                    sidePairs[sideIndex][1] = this.ptSides[this.ptSides.Count - 1];
                 }
                 else {
                     sidePairs[sideIndex] = new PTHalfSide[2];
-                    sidePairs[sideIndex][0] = this.sides[this.sides.Count - 1];
+                    sidePairs[sideIndex][0] = this.ptSides[this.ptSides.Count - 1];
                 }
 
                 // Add it to the cornerGroups dictionary, creating a new list if needed.
                 //  First add at the greater index.
                 if (cornerGroups.ContainsKey(greater)) {
-                    cornerGroups[greater].Add(this.sides[this.sides.Count - 1]);
+                    cornerGroups[greater].Add(this.ptSides[this.ptSides.Count - 1]);
                 }
                 else {
                     cornerGroups[greater] = new List<PTHalfSide>();
-                    cornerGroups[greater].Add(this.sides[this.sides.Count - 1]);
+                    cornerGroups[greater].Add(this.ptSides[this.ptSides.Count - 1]);
                 }
                 // Add at the lesser index.
                 if (cornerGroups.ContainsKey(lesser)) {
-                    cornerGroups[lesser].Add(this.sides[this.sides.Count - 1]);
+                    cornerGroups[lesser].Add(this.ptSides[this.ptSides.Count - 1]);
                 }
                 else {
                     cornerGroups[lesser] = new List<PTHalfSide>();
-                    cornerGroups[lesser].Add(this.sides[this.sides.Count - 1]);
+                    cornerGroups[lesser].Add(this.ptSides[this.ptSides.Count - 1]);
                 }
             }
 
             // Add the new sides to the triangle.
-            this.triangles.Add(new PTTriangle(this, this.sides.GetRange(i * 3, 3).ToArray()));
+            this.ptTriangles.Add(new PTTriangle(this, this.ptSides.GetRange(i * 3, 3).ToArray()));
         }
 
-        Debug.Log("Points: " + this.points.Count + " | Tris: " + this.triangles.Count);
+        Debug.Log("Points: " + this.ptPoints.Count + " | Tris: " + this.ptTriangles.Count);
 
         // Go through each side pairing and create its boundary.
         foreach (KeyValuePair<int, PTHalfSide[]> sidePair in sidePairs) {
-            this.boundaries.Add(new PTBoundary(this, sidePair.Value[0], sidePair.Value[1]));
+            this.ptBoundaries.Add(new PTBoundary(this, sidePair.Value[0], sidePair.Value[1]));
         }
 
         // Go through each cornerGroup and create a boundary cap.
@@ -712,66 +778,58 @@ public class Planet : MonoBehaviour {
                 }
             }
 
-            this.boundaryCaps.Add(new PTBoundaryGapCap(this, sorted));
+            this.ptBoundaryCaps.Add(new PTBoundaryGapCap(this, sorted));
         }
-
+        
+        // Find the average side length of all triangle edges.
         float lengths = 0;
-        for (int i = 0; i < this.triangles.Count; i++) {
-            this.triangles[i].GetCenter();
+        for (int i = 0; i < this.ptTriangles.Count; i++) {
+            this.ptTriangles[i].GetCenter();
 
             for (int j = 0; j < 3; j++) {
-                lengths += this.triangles[i].Sides[j].CurrentLength;
+                lengths += this.ptTriangles[i].Sides[j].CurrentLength;
             }
         }
-        this.averageSideLength = lengths / (this.triangles.Count * 3);
+        this.averageSideLength = lengths / (this.ptTriangles.Count * 3);
 
-        for (int i = 0; i < this.triangles.Count; i++) {
+        for (int i = 0; i < this.ptTriangles.Count; i++) {
             //this.triangles[i].ContractPointsTest(0.15f);
-            this.triangles[i].ContractPointsTest(Random.Range(0, 0.5f));
+            //this.ptTriangles[i].ContractPointsTest(Random.Range(0, 0.5f));
         }
 
-        for (int i = 0; i < this.boundaries.Count; i++) {
-            this.boundaries[i].CalculateBoundaryInformation();
-            this.boundaries[i].SetCornerDesired(0f);
-            this.boundaries[i].UpdateEdgeDesired();
+        for (int i = 0; i < this.ptBoundaries.Count; i++) {
+            this.ptBoundaries[i].CalculateBoundaryInformation();
+            this.ptBoundaries[i].SetCornerDesired(0f);
+            this.ptBoundaries[i].UpdateEdgeDesired();
         }
 
         this.TestRender();
     }
 
-    List<PTPoint> points;
-    List<PTTriangle> triangles;
-    List<PTHalfSide> sides;
-    List<PTBoundary> boundaries;
-    List<PTBoundaryGapCap> boundaryCaps;
-    Icosahedron icosahedron;
-
-    public int selectedPoint;
-
     private void TestRender () {
         List<Vector3> verts = new List<Vector3>();
         List<int> indices = new List<int>();
 
-        Matrix4x4 rotMat = this.points[Mathf.Abs(this.selectedPoint) % this.points.Count].RotationMatrix.inverse;
+        Matrix4x4 rotMat = this.ptPoints[Mathf.Abs(this.selectedViewPoint) % this.ptPoints.Count].RotationMatrix.inverse;
         Vector3 rotated;
-        for (int i = 0; i < this.points.Count; i++) {
-            rotated = rotMat.MultiplyPoint3x4(this.points[i].SphereLocation);
+        for (int i = 0; i < this.ptPoints.Count; i++) {
+            rotated = rotMat.MultiplyPoint3x4(this.ptPoints[i].SphereLocation);
             verts.Add(rotated);
             //verts.Add(this.points[i].SphereLocation);
-            this.points[i].RenderIndex = i;
+            this.ptPoints[i].RenderIndex = i;
         }
 
-        for (int i = 0; i < this.triangles.Count; i++) {
+        for (int i = 0; i < this.ptTriangles.Count; i++) {
             for (int j = 0; j < 3; j++) {
-                indices.Add(this.triangles[i].Points[j].RenderIndex);
+                indices.Add(this.ptTriangles[i].Points[j].RenderIndex);
             }
         }
 
-        for (int i = 0; i < this.boundaries.Count; i++) {
-            indices.AddRange(this.boundaries[i].GetBoundaryIndices());
+        for (int i = 0; i < this.ptBoundaries.Count; i++) {
+            indices.AddRange(this.ptBoundaries[i].GetBoundaryIndices());
         }
 
-        for (int i = 0; i < this.boundaryCaps.Count; i++) {
+        for (int i = 0; i < this.ptBoundaryCaps.Count; i++) {
             //indices.AddRange(this.boundaryCaps[i].GetBoundaryCapIndices());
         }
 
@@ -800,18 +858,18 @@ public class Planet : MonoBehaviour {
 
         float timestep = 0.01f;
 
-        for (int i = 0; i < this.boundaries.Count; i++) {
-            this.boundaries[i].CalculateBoundaryInformation();
-            this.boundaries[i].CalculateBoundaryForces(timestep);
+        for (int i = 0; i < this.ptBoundaries.Count; i++) {
+            this.ptBoundaries[i].CalculateBoundaryInformation();
+            this.ptBoundaries[i].CalculateBoundaryForces(timestep);
         }
 
-        this.triangles[0].ExpandTriangleTest(1.5f, timestep);
+        this.ptTriangles[0].ExpandTriangleTest(2.5f, timestep);
 
-        for (int i = 0; i < this.points.Count; i++) {
-            this.points[i].CalculateMovement(timestep);
+        for (int i = 0; i < this.ptPoints.Count; i++) {
+            this.ptPoints[i].CalculateMovement(timestep);
         }
 
-        Debug.Log(this.boundaries[1].FirstCorner.stiffness);
+        //Debug.Log(this.boundaries[1].FirstCorner.stiffness);
 
         this.TestRender();
     }

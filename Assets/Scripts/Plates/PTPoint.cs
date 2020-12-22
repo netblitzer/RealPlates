@@ -55,7 +55,7 @@ public class PTPoint {
     public void CalculateMovement (float _timestep, float _friction = -0.98f) {
         this.momentumTorque += (this.netTorque * _timestep);
         
-        if (Mathf.Abs(this.momentumTorque.x) > 0.00001f || Mathf.Abs(this.momentumTorque.y) > 0.00001f || Mathf.Abs(this.momentumTorque.z) > 0.00001f) {
+        if (Mathf.Abs(this.momentumTorque.x) > 0.000005f || Mathf.Abs(this.momentumTorque.y) > 0.000005f || Mathf.Abs(this.momentumTorque.z) > 0.000005f) {
             this.momentumTorque += (this.momentumTorque * _friction * _timestep);
             this.sphereLocation = PTFunctions.RotateVectorQuaternion(this.sphereLocation, this.momentumTorque.normalized, this.momentumTorque.magnitude);
         }
